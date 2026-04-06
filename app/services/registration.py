@@ -38,7 +38,7 @@ def _send_email_code(*, target: str, code: str) -> bool:
         logger.warning("Resend non configure: impossible d'envoyer le code par email.")
         return False
     payload = json.dumps({
-        "from": "TouriGo <onboarding@resend.dev>",
+        "from": "TouriGo <rayaneghebrioua10@gmail.com>",
         "to": [target],
         "subject": "Code de confirmation TouriGo",
         "text": (
