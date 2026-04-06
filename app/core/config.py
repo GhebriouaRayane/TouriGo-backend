@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str | None = None
     SMTP_FROM_EMAIL: str | None = None
     SMTP_USE_TLS: bool = True
+    RESEND_API_KEY: str | None = None
     SMTP_USE_SSL: bool = False
 
     SMS_WEBHOOK_URL: str | None = None
