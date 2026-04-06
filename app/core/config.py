@@ -25,11 +25,13 @@ class Settings(BaseSettings):
     SMTP_FROM_EMAIL: str | None = None
     SMTP_USE_TLS: bool = True
     RESEND_API_KEY: str | None = None
+    BREVO_API_KEY: str | None = None
     INFOBIP_API_KEY: str | None = None
     INFOBIP_BASE_URL: str | None = None
     INFOBIP_SENDER: str | None = None
     SMTP_USE_SSL: bool = False
     RESEND_API_KEY: str | None = None
+    BREVO_API_KEY: str | None = None
 
     SMS_WEBHOOK_URL: str | None = None
     SMS_WEBHOOK_TOKEN: str | None = None
