@@ -299,6 +299,69 @@ FAQ_ENTRIES = [
         },
     },
     {
+        "key": "what_is_tourigo",
+        "questions": {
+            "fr": [
+                "C'est quoi Tourigo ?",
+                "Qu'est-ce que Tourigo ?",
+                "Tourigo c'est quoi ?",
+                "Tourigo, c'est quoi ?",
+            ],
+            "en": ["What is Tourigo?"],
+            "ar": ["ما هي Tourigo؟", "ما هو Tourigo؟"],
+        },
+        "answers": {
+            "fr": (
+                "TouriGo est une plateforme algérienne pour trouver : "
+                "des logements, des véhicules à louer et des activités locales."
+            ),
+            "en": (
+                "TouriGo is an Algerian platform to find: "
+                "accommodations, rental vehicles, and local activities."
+            ),
+            "ar": (
+                "TouriGo منصة جزائرية للعثور على السكن وتأجير المركبات "
+                "واكتشاف الأنشطة المحلية."
+            ),
+        },
+    },
+    {
+        "key": "search_listing",
+        "questions": {
+            "fr": [
+                "Comment chercher une annonce ?",
+                "Comment trouver une annonce ?",
+                "Comment rechercher une annonce ?",
+                "Comment voir les annonces ?",
+                "Comment chercher une offre ?",
+            ],
+            "en": [
+                "How do I search for listings?",
+                "How can I find a listing?",
+                "How do I browse listings?",
+            ],
+            "ar": [
+                "كيف أبحث عن إعلان؟",
+                "كيف أجد إعلانًا؟",
+                "كيف أبحث عن العروض؟",
+            ],
+        },
+        "answers": {
+            "fr": (
+                "Choisissez une catégorie (logement, véhicule, activité), "
+                "puis utilisez les filtres (ville, prix, dates) pour affiner."
+            ),
+            "en": (
+                "Choose a category (accommodation, vehicle, activity), "
+                "then use filters (city, price, dates) to refine."
+            ),
+            "ar": (
+                "اختر الفئة (سكن، مركبة، نشاط) ثم استخدم عوامل التصفية "
+                "(المدينة، السعر، التواريخ) للتضييق."
+            ),
+        },
+    },
+    {
         "key": "payment_reservation",
         "questions": {
             "fr": ["Comment payer une réservation ?"],
@@ -922,7 +985,12 @@ FAQ_ENTRIES = [
     {
         "key": "signup_how",
         "questions": {
-            "fr": ["Comment s'inscrire ?"],
+            "fr": [
+                "Comment s'inscrire ?",
+                "Comment créer un compte ?",
+                "Comment creer un compte ?",
+                "Créer un compte",
+            ],
             "en": ["How do I sign up?"],
             "ar": ["كيف أنشئ حسابًا؟"],
         },
@@ -1550,6 +1618,39 @@ ACCOUNT_KEYWORDS = normalize_keywords([
     "انشاء حساب",
 ])
 
+ACCOUNT_CREATE_KEYWORDS = normalize_keywords([
+    "creer un compte",
+    "créer un compte",
+    "creation de compte",
+    "ouvrir un compte",
+    "inscription",
+    "s'inscrire",
+    "signup",
+    "sign up",
+    "register",
+    "create account",
+    "تسجيل",
+    "إنشاء حساب",
+    "انشاء حساب",
+])
+
+ACCOUNT_DELETE_KEYWORDS = normalize_keywords([
+    "supprimer mon compte",
+    "supprimer compte",
+    "supprimer",
+    "delete account",
+    "delete my account",
+    "remove account",
+    "close account",
+    "fermer mon compte",
+    "clore mon compte",
+    "desactiver mon compte",
+    "désactiver mon compte",
+    "حذف الحساب",
+    "حذف حسابي",
+    "إغلاق الحساب",
+])
+
 CANCEL_KEYWORDS = normalize_keywords([
     "annuler",
     "annulation",
@@ -1594,6 +1695,7 @@ def normalize_context(context: Optional[str]) -> Optional[str]:
 def detect_intent(text: str, context: Optional[str] = None) -> dict:
     """Analyse le message et retourne l'intention détectée."""
     message_norm, _tokens, tokens_set = prepare_text(text)
+    collapsed = message_norm.replace(" ", "")
 
     immo_hits = keyword_hits(message_norm, tokens_set, IMMO_KEYWORDS)
     vehicule_hits = keyword_hits(message_norm, tokens_set, VEHICULE_KEYWORDS)
@@ -1626,10 +1728,24 @@ def detect_intent(text: str, context: Optional[str] = None) -> dict:
     is_help = keyword_hits(message_norm, tokens_set, HELP_KEYWORDS) > 0
     is_contact = keyword_hits(message_norm, tokens_set, CONTACT_KEYWORDS) > 0
     is_account = keyword_hits(message_norm, tokens_set, ACCOUNT_KEYWORDS) > 0
+    is_account_create = keyword_hits(message_norm, tokens_set, ACCOUNT_CREATE_KEYWORDS) > 0
+    is_account_delete = keyword_hits(message_norm, tokens_set, ACCOUNT_DELETE_KEYWORDS) > 0
     is_cancel = keyword_hits(message_norm, tokens_set, CANCEL_KEYWORDS) > 0
     is_thanks = keyword_hits(message_norm, tokens_set, THANKS_KEYWORDS) > 0
     is_bejaia = keyword_hits(message_norm, tokens_set, BEJAIA_KEYWORDS) > 0
     is_alger = keyword_hits(message_norm, tokens_set, ALGER_KEYWORDS) > 0
+
+    if "compte" in message_norm:
+        if any(token in collapsed for token in ("creer", "crer", "creation", "inscription", "signup", "register")):
+            is_account_create = True
+        if any(token in collapsed for token in ("supprimer", "delete", "remove", "fermer", "clore", "desactiver")):
+            is_account_delete = True
+
+    if "tourigo" in collapsed and any(token in collapsed for token in ("cestquoi", "questceque", "whatis")):
+        is_help = True
+
+    if is_account_create or is_account_delete:
+        is_account = True
 
     return {
         "category": category,
@@ -1649,6 +1765,8 @@ def detect_intent(text: str, context: Optional[str] = None) -> dict:
         "is_help": is_help,
         "is_contact": is_contact,
         "is_account": is_account,
+        "is_account_create": is_account_create,
+        "is_account_delete": is_account_delete,
         "is_cancel": is_cancel,
         "is_thanks": is_thanks,
     }
@@ -1702,6 +1820,25 @@ def build_response_fr(intent: dict, _message: str) -> ChatResponse:
                 "Je peux vous orienter vers la bonne catégorie."
             ),
             suggestions=["🏠 Immobilier", "🚗 Véhicules", "🌴 Activités"],
+        )
+
+    if intent.get("is_account_delete"):
+        return ChatResponse(
+            reply=(
+                "Vous pouvez supprimer votre compte depuis les paramètres de votre profil "
+                "dans l’application."
+            ),
+            suggestions=["❓ Aide", "📋 Voir les annonces"],
+        )
+
+    if intent.get("is_account_create"):
+        return ChatResponse(
+            reply=(
+                "Pour créer un compte, allez sur Inscription, choisissez l'email ou le téléphone, "
+                "remplissez les informations puis confirmez le code reçu."
+            ),
+            suggestions=["🔑 Se connecter", "📝 S'inscrire"],
+            link="/inscription",
         )
 
     if intent["is_account"]:
@@ -1948,6 +2085,24 @@ def build_response_ar(intent: dict, _message: str) -> ChatResponse:
             suggestions=["🏠 العقارات", "🚗 المركبات", "🌴 الأنشطة"],
         )
 
+    if intent.get("is_account_delete"):
+        return ChatResponse(
+            reply=(
+                "يمكنك حذف حسابك من إعدادات ملفك الشخصي داخل التطبيق."
+            ),
+            suggestions=["❓ مساعدة", "📋 عرض الإعلانات"],
+        )
+
+    if intent.get("is_account_create"):
+        return ChatResponse(
+            reply=(
+                "لإنشاء حساب، اذهب إلى إنشاء حساب، اختر البريد أو الهاتف، "
+                "أدخل المعلومات ثم أكّد رمز التحقق."
+            ),
+            suggestions=["🔑 تسجيل الدخول", "📝 إنشاء حساب"],
+            link="/inscription",
+        )
+
     if intent["is_account"]:
         return ChatResponse(
             reply=(
@@ -2148,6 +2303,8 @@ def build_response(intent: dict, message: str, language: Language = "fr") -> Cha
 async def chat(payload: ChatMessage):
     """Endpoint principal du chatbot TouriGo."""
     intent = detect_intent(payload.message, payload.context)
+    if intent.get("is_account_create") or intent.get("is_account_delete"):
+        return build_response(intent, payload.message, payload.language)
     faq_response = match_faq(payload.message, payload.language)
     if faq_response is not None:
         category = intent.get("category")
