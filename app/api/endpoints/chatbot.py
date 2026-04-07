@@ -203,16 +203,21 @@ def similarity_score(
     return base, intersection
 
 
-def should_accept_match(score: float, overlap: int, message_tokens_count: int) -> bool:
-    if score >= 0.82:
+def should_accept_match(
+    score: float,
+    overlap: int,
+    message_tokens_count: int,
+    raw_tokens_count: int,
+) -> bool:
+    if raw_tokens_count <= 1:
+        return False
+    if score >= 0.92 and overlap >= 1:
         return True
-    if overlap >= 2 and score >= 0.55:
+    if score >= 0.86 and overlap >= 2:
         return True
-    if overlap >= 1 and score >= 0.65:
+    if score >= 0.8 and overlap >= 3:
         return True
-    if message_tokens_count <= 3 and score >= 0.72:
-        return True
-    if message_tokens_count >= 6 and overlap >= 1 and score >= 0.52:
+    if message_tokens_count >= 6 and overlap >= 2 and score >= 0.74:
         return True
     return False
 
@@ -1155,6 +1160,9 @@ def match_faq(message: str, language: Language) -> Optional[ChatResponse]:
     message_norm = normalize_text(message)
     if not message_norm:
         return None
+    raw_tokens = message_norm.split()
+    if len(raw_tokens) <= 1:
+        return None
 
     languages_to_check: list[Language] = []
     for lang in (language, "fr", "en", "ar"):
@@ -1195,6 +1203,7 @@ def match_faq(message: str, language: Language) -> Optional[ChatResponse]:
         best_score,
         best_overlap,
         best_message_tokens_count,
+        len(raw_tokens),
     ):
         suggestions = None
         if best_entry.get("suggestions"):
@@ -1209,61 +1218,367 @@ def match_faq(message: str, language: Language) -> Optional[ChatResponse]:
     return None
 
 
-def detect_intent(text: str) -> dict:
+def normalize_keywords(keywords: list[str]) -> list[str]:
+    normalized: list[str] = []
+    for keyword in keywords:
+        keyword_norm = normalize_text(keyword)
+        if keyword_norm:
+            normalized.append(keyword_norm)
+    return normalized
+
+
+IMMO_KEYWORDS = normalize_keywords([
+    "immobilier",
+    "appartement",
+    "appartements",
+    "maison",
+    "maisons",
+    "villa",
+    "villas",
+    "studio",
+    "studios",
+    "logement",
+    "logements",
+    "chambre",
+    "chambres",
+    "duplex",
+    "hébergement",
+    "hebergement",
+    "accommodation",
+    "real estate",
+    "property",
+    "properties",
+    "house",
+    "home",
+    "apartment",
+    "apartments",
+    "lodging",
+    "housing",
+    "سكن",
+    "سكنات",
+    "شقة",
+    "شقق",
+    "منزل",
+    "بيت",
+    "فيلا",
+    "غرفة",
+    "إقامة",
+    "اقامة",
+    "عقار",
+    "عقارات",
+])
+
+VEHICULE_KEYWORDS = normalize_keywords([
+    "voiture",
+    "voitures",
+    "vehicule",
+    "véhicule",
+    "vehicules",
+    "moto",
+    "motos",
+    "scooter",
+    "scooters",
+    "4x4",
+    "auto",
+    "berline",
+    "suv",
+    "car",
+    "cars",
+    "vehicle",
+    "vehicles",
+    "rent a car",
+    "rental car",
+    "motorbike",
+    "motorbikes",
+    "bike",
+    "bikes",
+    "سيارة",
+    "سيارات",
+    "مركبة",
+    "مركبات",
+    "دراجة",
+    "دراجات",
+    "استئجار سيارة",
+    "تأجير سيارة",
+    "كراء سيارة",
+])
+
+ACTIVITE_KEYWORDS = normalize_keywords([
+    "activité",
+    "activite",
+    "activités",
+    "activites",
+    "excursion",
+    "excursions",
+    "randonnée",
+    "randonnee",
+    "randonnées",
+    "sport",
+    "loisir",
+    "loisirs",
+    "visite",
+    "visites",
+    "tour",
+    "sortie",
+    "plage",
+    "montagne",
+    "activity",
+    "activities",
+    "trip",
+    "hiking",
+    "experience",
+    "experiences",
+    "نشاط",
+    "أنشطة",
+    "انشطة",
+    "رحلة",
+    "رحلات",
+    "جولة",
+    "جولات",
+    "مغامرة",
+    "تجربة",
+    "تجارب",
+    "نزهة",
+])
+
+BEJAIA_KEYWORDS = normalize_keywords([
+    "béjaïa",
+    "bejaia",
+    "bgayet",
+    "بجاية",
+])
+
+ALGER_KEYWORDS = normalize_keywords([
+    "alger",
+    "algers",
+    "algiers",
+    "el djazair",
+    "الجزائر",
+    "الجزائر العاصمة",
+    "الجزاير",
+])
+
+GREETING_KEYWORDS = normalize_keywords([
+    "bonjour",
+    "salut",
+    "hello",
+    "bonsoir",
+    "hi",
+    "salam",
+    "السلام",
+    "مرحبا",
+    "مرحبًا",
+    "اهلا",
+    "أهلا",
+])
+
+BOOKING_KEYWORDS = normalize_keywords([
+    "réserver",
+    "reserver",
+    "réservation",
+    "reservation",
+    "book",
+    "booking",
+    "disponible",
+    "disponibilité",
+    "disponibilite",
+    "availability",
+    "available",
+    "reserve",
+    "حجز",
+    "حجوزات",
+])
+
+PRICE_KEYWORDS = normalize_keywords([
+    "prix",
+    "tarif",
+    "coût",
+    "cout",
+    "combien",
+    "da",
+    "dinar",
+    "payer",
+    "price",
+    "cost",
+    "how much",
+    "fee",
+    "fees",
+    "سعر",
+    "أسعار",
+    "اسعار",
+    "تكلفة",
+    "كم",
+    "دج",
+])
+
+HOST_KEYWORDS = normalize_keywords([
+    "hôte",
+    "hote",
+    "propriétaire",
+    "proprietaire",
+    "annonceur",
+    "publier",
+    "publication",
+    "mettre en ligne",
+    "devenir hôte",
+    "devenir hote",
+    "host",
+    "owner",
+    "listing",
+    "publish",
+    "list my",
+    "mon annonce",
+    "mes annonces",
+    "espace hote",
+    "espace hôte",
+    "مضيف",
+    "مستضيف",
+    "استضافة",
+    "نشر",
+    "إعلان",
+    "اعلان",
+])
+
+HELP_KEYWORDS = normalize_keywords([
+    "aide",
+    "help",
+    "assistance",
+    "support",
+    "info",
+    "information",
+    "comment ca marche",
+    "comment ça marche",
+    "how does it work",
+    "guide",
+    "مساعدة",
+    "مساندة",
+    "دعم",
+    "كيف يعمل",
+])
+
+CONTACT_KEYWORDS = normalize_keywords([
+    "contact",
+    "appeler",
+    "téléphone",
+    "telephone",
+    "joindre",
+    "parler",
+    "call",
+    "phone",
+    "reach",
+    "email",
+    "mail",
+    "تواصل",
+    "اتصال",
+    "هاتف",
+])
+
+ACCOUNT_KEYWORDS = normalize_keywords([
+    "compte",
+    "connexion",
+    "inscription",
+    "profil",
+    "login",
+    "connecter",
+    "inscrire",
+    "account",
+    "sign in",
+    "sign up",
+    "register",
+    "profile",
+    "تسجيل",
+    "حساب",
+    "دخول",
+    "إنشاء حساب",
+    "انشاء حساب",
+])
+
+CANCEL_KEYWORDS = normalize_keywords([
+    "annuler",
+    "annulation",
+    "cancel",
+    "cancellation",
+    "إلغاء",
+    "الغاء",
+])
+
+THANKS_KEYWORDS = normalize_keywords([
+    "merci",
+    "thanks",
+    "thank you",
+    "شكرا",
+    "شكرًا",
+])
+
+
+def prepare_text(text: str) -> tuple[str, list[str], set[str]]:
+    normalized = normalize_text(text)
+    tokens = normalized.split()
+    return normalized, tokens, set(tokens)
+
+
+def keyword_hits(message_norm: str, tokens_set: set[str], keywords: list[str]) -> int:
+    hits = 0
+    for keyword in keywords:
+        if " " in keyword:
+            if keyword in message_norm:
+                hits += 1
+        elif keyword in tokens_set:
+            hits += 1
+    return hits
+
+
+def normalize_context(context: Optional[str]) -> Optional[str]:
+    if context in {"immobilier", "vehicule", "activite"}:
+        return context
+    return None
+
+
+def detect_intent(text: str, context: Optional[str] = None) -> dict:
     """Analyse le message et retourne l'intention détectée."""
-    t = text.lower()
+    message_norm, _tokens, tokens_set = prepare_text(text)
 
-    is_immo = any(k in t for k in [
-        "immobilier", "appartement", "maison", "villa", "studio",
-        "logement", "louer", "location", "loue", "chambre", "duplex",
-        "real estate", "house", "home", "apartment", "property", "accommodation",
-    ])
-    is_vehicule = any(k in t for k in [
-        "voiture", "véhicule", "vehicule", "moto", "scooter", "4x4",
-        "louer voiture", "location voiture", "auto", "berline", "suv",
-        "car", "vehicle", "rent a car", "rental car", "motorbike", "bike",
-    ])
-    is_activite = any(k in t for k in [
-        "activité", "activite", "excursion", "randonnée", "randonnee",
-        "sport", "loisir", "visite", "tour", "sortie", "plage", "montagne",
-        "activity", "activities", "trip", "hiking", "experience",
-    ])
+    immo_hits = keyword_hits(message_norm, tokens_set, IMMO_KEYWORDS)
+    vehicule_hits = keyword_hits(message_norm, tokens_set, VEHICULE_KEYWORDS)
+    activite_hits = keyword_hits(message_norm, tokens_set, ACTIVITE_KEYWORDS)
 
-    is_bejaia = any(k in t for k in ["béjaïa", "bejaia", "bgayet"])
-    is_alger = any(k in t for k in ["alger", "algers", "algiers", "el djazair"])
+    category_scores = {
+        "immobilier": immo_hits,
+        "vehicule": vehicule_hits,
+        "activite": activite_hits,
+    }
+    positive_categories = [key for key, value in category_scores.items() if value > 0]
+    has_multi_category = len(positive_categories) > 1
+    category: Optional[str] = None
+    if len(positive_categories) == 1:
+        category = positive_categories[0]
+    elif len(positive_categories) > 1:
+        sorted_scores = sorted(category_scores.items(), key=lambda item: item[1], reverse=True)
+        if sorted_scores[0][1] >= sorted_scores[1][1] + 1:
+            category = sorted_scores[0][0]
+            has_multi_category = False
 
-    is_greeting = any(k in t for k in [
-        "bonjour", "salut", "hello", "bonsoir", "hi", "salam", "السلام",
-    ])
-    is_booking = any(k in t for k in [
-        "réserver", "reserver", "réservation", "reservation", "book", "booking",
-        "disponible", "disponibilité", "availability", "available", "reserve",
-    ])
-    is_price = any(k in t for k in [
-        "prix", "tarif", "coût", "cout", "combien", "€", "da", "dinar", "payer",
-        "price", "cost", "how much", "fee", "fees",
-    ])
-    is_host = any(k in t for k in [
-        "hôte", "hote", "propriétaire", "proprietaire", "annonceur", "publier",
-        "mettre en ligne", "devenir hôte", "host", "owner", "listing", "publish", "list my",
-    ])
-    is_help = any(k in t for k in [
-        "aide", "help", "aider", "comment", "comment ça marche", "info", "information",
-        "support", "how does it work",
-    ])
-    is_contact = any(k in t for k in [
-        "contact", "appeler", "téléphone", "telephone", "joindre", "parler",
-        "call", "phone", "reach",
-    ])
-    is_account = any(k in t for k in [
-        "compte", "connexion", "inscription", "profil", "login", "connecter", "inscrire",
-        "account", "sign in", "sign up", "register", "profile",
-    ])
+    context_category = normalize_context(context)
+
+    is_greeting = keyword_hits(message_norm, tokens_set, GREETING_KEYWORDS) > 0
+    is_booking = keyword_hits(message_norm, tokens_set, BOOKING_KEYWORDS) > 0
+    is_price = keyword_hits(message_norm, tokens_set, PRICE_KEYWORDS) > 0
+    is_host = keyword_hits(message_norm, tokens_set, HOST_KEYWORDS) > 0
+    is_help = keyword_hits(message_norm, tokens_set, HELP_KEYWORDS) > 0
+    is_contact = keyword_hits(message_norm, tokens_set, CONTACT_KEYWORDS) > 0
+    is_account = keyword_hits(message_norm, tokens_set, ACCOUNT_KEYWORDS) > 0
+    is_cancel = keyword_hits(message_norm, tokens_set, CANCEL_KEYWORDS) > 0
+    is_thanks = keyword_hits(message_norm, tokens_set, THANKS_KEYWORDS) > 0
+    is_bejaia = keyword_hits(message_norm, tokens_set, BEJAIA_KEYWORDS) > 0
+    is_alger = keyword_hits(message_norm, tokens_set, ALGER_KEYWORDS) > 0
 
     return {
-        "is_immo": is_immo,
-        "is_vehicule": is_vehicule,
-        "is_activite": is_activite,
+        "category": category,
+        "context_category": context_category,
+        "has_multi_category": has_multi_category,
+        "is_immo": immo_hits > 0,
+        "is_vehicule": vehicule_hits > 0,
+        "is_activite": activite_hits > 0,
         "is_bejaia": is_bejaia,
         "is_alger": is_alger,
         "is_greeting": is_greeting,
@@ -1273,13 +1588,30 @@ def detect_intent(text: str) -> dict:
         "is_help": is_help,
         "is_contact": is_contact,
         "is_account": is_account,
+        "is_cancel": is_cancel,
+        "is_thanks": is_thanks,
     }
 
 
 def build_response_fr(intent: dict, _message: str) -> ChatResponse:
-    if intent["is_greeting"] and not any([
-        intent["is_immo"], intent["is_vehicule"], intent["is_activite"],
-    ]):
+    category = intent.get("category")
+    context_category = intent.get("context_category")
+    has_multi_category = intent.get("has_multi_category", False)
+    category_for_action = category
+    if category_for_action is None and context_category and (intent["is_price"] or intent["is_booking"]):
+        category_for_action = context_category
+
+    has_action_intent = any([
+        intent["is_price"],
+        intent["is_booking"],
+        intent["is_host"],
+        intent["is_account"],
+        intent["is_help"],
+        intent["is_contact"],
+        intent["is_cancel"],
+    ])
+
+    if intent["is_greeting"] and not category and not has_multi_category and not has_action_intent and not intent["is_thanks"]:
         return ChatResponse(
             reply=(
                 "Bonjour ! 👋 Je suis l'assistant TouriGo.\n"
@@ -1292,6 +1624,21 @@ def build_response_fr(intent: dict, _message: str) -> ChatResponse:
                 "🚗 Louer un véhicule",
                 "🌴 Découvrir des activités",
             ],
+        )
+
+    if intent["is_thanks"] and not category and not has_multi_category and not has_action_intent:
+        return ChatResponse(
+            reply="Avec plaisir ! Dites-moi ce que vous cherchez, je suis là pour aider.",
+            suggestions=["🏠 Immobilier", "🚗 Véhicules", "🌴 Activités"],
+        )
+
+    if has_multi_category:
+        return ChatResponse(
+            reply=(
+                "Vous cherchez plutôt un logement, un véhicule ou une activité ? "
+                "Je peux vous orienter vers la bonne catégorie."
+            ),
+            suggestions=["🏠 Immobilier", "🚗 Véhicules", "🌴 Activités"],
         )
 
     if intent["is_account"]:
@@ -1315,30 +1662,47 @@ def build_response_fr(intent: dict, _message: str) -> ChatResponse:
             link="/devenir-hote",
         )
 
-    if intent["is_price"]:
-        category = (
-            "logements" if intent["is_immo"]
-            else "véhicules" if intent["is_vehicule"]
-            else "activités" if intent["is_activite"]
-            else "annonces"
-        )
-        link = (
-            "/immobilier" if intent["is_immo"]
-            else "/vehicules" if intent["is_vehicule"]
-            else "/activites" if intent["is_activite"]
-            else "/resultats"
-        )
+    if intent["is_cancel"]:
         return ChatResponse(
             reply=(
-                f"Les prix varient selon les {category} et leur emplacement. "
+                "Pour annuler une réservation, ouvrez Mes réservations, "
+                "sélectionnez l'annonce concernée puis choisissez Annuler. "
+                "Si besoin, notre support peut vous aider."
+            ),
+            suggestions=["❓ Aide", "📋 Voir les annonces"],
+            link="/centre-aide",
+        )
+
+    if intent["is_price"]:
+        category_label = "annonces"
+        link = "/resultats"
+        if category_for_action == "immobilier":
+            category_label = "logements"
+            link = "/immobilier"
+        elif category_for_action == "vehicule":
+            category_label = "véhicules"
+            link = "/vehicules"
+        elif category_for_action == "activite":
+            category_label = "activités"
+            link = "/activites"
+        return ChatResponse(
+            reply=(
+                f"Les prix varient selon les {category_label} et leur emplacement. "
                 "Consultez les annonces pour voir les tarifs détaillés de chaque offre. "
                 "Aucune commission cachée !"
             ),
-            suggestions=[f"🔍 Voir les {category}", "📍 Filtrer par ville"],
+            suggestions=[f"🔍 Voir les {category_label}", "📍 Filtrer par ville"],
             link=link,
         )
 
     if intent["is_booking"]:
+        link = "/resultats"
+        if category_for_action == "immobilier":
+            link = "/immobilier"
+        elif category_for_action == "vehicule":
+            link = "/vehicules"
+        elif category_for_action == "activite":
+            link = "/activites"
         return ChatResponse(
             reply=(
                 "Pour réserver, trouvez une annonce qui vous convient, "
@@ -1346,7 +1710,7 @@ def build_response_fr(intent: dict, _message: str) -> ChatResponse:
                 "Vous recevrez une confirmation par notification. 📩"
             ),
             suggestions=["🏠 Chercher un logement", "🚗 Chercher un véhicule", "🌴 Chercher une activité"],
-            link="/resultats",
+            link=link,
         )
 
     if intent["is_contact"]:
@@ -1371,7 +1735,7 @@ def build_response_fr(intent: dict, _message: str) -> ChatResponse:
             suggestions=["🏠 Immobilier", "🚗 Véhicules", "🌴 Activités"],
         )
 
-    if intent["is_immo"]:
+    if category == "immobilier":
         city_info = ""
         if intent["is_bejaia"]:
             city_info = "à Béjaïa "
@@ -1388,7 +1752,7 @@ def build_response_fr(intent: dict, _message: str) -> ChatResponse:
             link="/immobilier",
         )
 
-    if intent["is_vehicule"]:
+    if category == "vehicule":
         city_info = ""
         if intent["is_bejaia"]:
             city_info = "à Béjaïa "
@@ -1404,7 +1768,7 @@ def build_response_fr(intent: dict, _message: str) -> ChatResponse:
             link="/vehicules",
         )
 
-    if intent["is_activite"]:
+    if category == "activite":
         city_info = ""
         if intent["is_bejaia"]:
             city_info = "à Béjaïa "
@@ -1456,9 +1820,24 @@ def build_response_fr(intent: dict, _message: str) -> ChatResponse:
 
 
 def build_response_ar(intent: dict, _message: str) -> ChatResponse:
-    if intent["is_greeting"] and not any([
-        intent["is_immo"], intent["is_vehicule"], intent["is_activite"],
-    ]):
+    category = intent.get("category")
+    context_category = intent.get("context_category")
+    has_multi_category = intent.get("has_multi_category", False)
+    category_for_action = category
+    if category_for_action is None and context_category and (intent["is_price"] or intent["is_booking"]):
+        category_for_action = context_category
+
+    has_action_intent = any([
+        intent["is_price"],
+        intent["is_booking"],
+        intent["is_host"],
+        intent["is_account"],
+        intent["is_help"],
+        intent["is_contact"],
+        intent["is_cancel"],
+    ])
+
+    if intent["is_greeting"] and not category and not has_multi_category and not has_action_intent and not intent["is_thanks"]:
         return ChatResponse(
             reply=(
                 "مرحبًا! 👋 أنا مساعد TouriGo.\n"
@@ -1471,6 +1850,18 @@ def build_response_ar(intent: dict, _message: str) -> ChatResponse:
                 "🚗 استئجار مركبة",
                 "🌴 اكتشاف الأنشطة",
             ],
+        )
+
+    if intent["is_thanks"] and not category and not has_multi_category and not has_action_intent:
+        return ChatResponse(
+            reply="على الرحب والسعة! أخبرني ماذا تبحث عنه وسأساعدك.",
+            suggestions=["🏠 العقارات", "🚗 المركبات", "🌴 الأنشطة"],
+        )
+
+    if has_multi_category:
+        return ChatResponse(
+            reply="هل تبحث عن سكن أم مركبة أم نشاط؟ يمكنني توجيهك للفئة المناسبة.",
+            suggestions=["🏠 العقارات", "🚗 المركبات", "🌴 الأنشطة"],
         )
 
     if intent["is_account"]:
@@ -1494,28 +1885,35 @@ def build_response_ar(intent: dict, _message: str) -> ChatResponse:
             link="/devenir-hote",
         )
 
-    if intent["is_price"]:
-        category = (
-            "العقارات" if intent["is_immo"]
-            else "المركبات" if intent["is_vehicule"]
-            else "الأنشطة" if intent["is_activite"]
-            else "الإعلانات"
-        )
-        suggestion = (
-            "🔍 عرض العقارات" if intent["is_immo"]
-            else "🔍 عرض المركبات" if intent["is_vehicule"]
-            else "🔍 عرض الأنشطة" if intent["is_activite"]
-            else "🔍 عرض الإعلانات"
-        )
-        link = (
-            "/immobilier" if intent["is_immo"]
-            else "/vehicules" if intent["is_vehicule"]
-            else "/activites" if intent["is_activite"]
-            else "/resultats"
-        )
+    if intent["is_cancel"]:
         return ChatResponse(
             reply=(
-                f"تختلف الأسعار حسب {category} والموقع. "
+                "لإلغاء الحجز، افتح حجوزاتي، اختر الإعلان ثم اضغط إلغاء. "
+                "إذا احتجت مساعدة إضافية يمكن لفريق الدعم مساعدتك."
+            ),
+            suggestions=["❓ مساعدة", "📋 عرض الإعلانات"],
+            link="/centre-aide",
+        )
+
+    if intent["is_price"]:
+        category_label = "الإعلانات"
+        suggestion = "🔍 عرض الإعلانات"
+        link = "/resultats"
+        if category_for_action == "immobilier":
+            category_label = "العقارات"
+            suggestion = "🔍 عرض العقارات"
+            link = "/immobilier"
+        elif category_for_action == "vehicule":
+            category_label = "المركبات"
+            suggestion = "🔍 عرض المركبات"
+            link = "/vehicules"
+        elif category_for_action == "activite":
+            category_label = "الأنشطة"
+            suggestion = "🔍 عرض الأنشطة"
+            link = "/activites"
+        return ChatResponse(
+            reply=(
+                f"تختلف الأسعار حسب {category_label} والموقع. "
                 "تصفح الإعلانات للاطلاع على السعر التفصيلي لكل عرض. "
                 "بدون عمولات مخفية!"
             ),
@@ -1524,6 +1922,13 @@ def build_response_ar(intent: dict, _message: str) -> ChatResponse:
         )
 
     if intent["is_booking"]:
+        link = "/resultats"
+        if category_for_action == "immobilier":
+            link = "/immobilier"
+        elif category_for_action == "vehicule":
+            link = "/vehicules"
+        elif category_for_action == "activite":
+            link = "/activites"
         return ChatResponse(
             reply=(
                 "لإتمام الحجز، اختر الإعلان المناسب لك، "
@@ -1531,7 +1936,7 @@ def build_response_ar(intent: dict, _message: str) -> ChatResponse:
                 "ستصلك رسالة تأكيد عبر الإشعارات. 📩"
             ),
             suggestions=["🏠 البحث عن سكن", "🚗 البحث عن مركبة", "🌴 البحث عن نشاط"],
-            link="/resultats",
+            link=link,
         )
 
     if intent["is_contact"]:
@@ -1555,7 +1960,7 @@ def build_response_ar(intent: dict, _message: str) -> ChatResponse:
             suggestions=["🏠 العقارات", "🚗 المركبات", "🌴 الأنشطة"],
         )
 
-    if intent["is_immo"]:
+    if category == "immobilier":
         city_info = ""
         if intent["is_bejaia"]:
             city_info = "في بجاية "
@@ -1571,7 +1976,7 @@ def build_response_ar(intent: dict, _message: str) -> ChatResponse:
             link="/immobilier",
         )
 
-    if intent["is_vehicule"]:
+    if category == "vehicule":
         city_info = ""
         if intent["is_bejaia"]:
             city_info = "في بجاية "
@@ -1587,7 +1992,7 @@ def build_response_ar(intent: dict, _message: str) -> ChatResponse:
             link="/vehicules",
         )
 
-    if intent["is_activite"]:
+    if category == "activite":
         city_info = ""
         if intent["is_bejaia"]:
             city_info = "في بجاية "
@@ -1644,7 +2049,7 @@ async def chat(payload: ChatMessage):
     faq_response = match_faq(payload.message, payload.language)
     if faq_response is not None:
         return faq_response
-    intent = detect_intent(payload.message)
+    intent = detect_intent(payload.message, payload.context)
     return build_response(intent, payload.message, payload.language)
 
 
