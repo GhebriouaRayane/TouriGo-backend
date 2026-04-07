@@ -834,7 +834,12 @@ FAQ_ENTRIES = [
     {
         "key": "host_payment_receive",
         "questions": {
-            "fr": ["Comment recevoir les paiements en tant qu’hôte ?"],
+            "fr": [
+                "Comment recevoir les paiements en tant qu’hôte ?",
+                "Comment recevoir mon argent ?",
+                "Quand vais-je recevoir mon paiement ?",
+                "Comment être payé en tant qu’hôte ?",
+            ],
             "en": ["How do I receive payments as a host?"],
             "ar": ["كيف أستلم المدفوعات كمضيف؟"],
         },
@@ -1104,7 +1109,11 @@ FAQ_ENTRIES = [
     {
         "key": "secure_payment",
         "questions": {
-            "fr": ["Le paiement est-il sécurisé ?"],
+            "fr": [
+                "Le paiement est-il sécurisé ?",
+                "Mon paiement est-il sécurisé ?",
+                "Le paiement est-il sûr ?",
+            ],
             "en": ["Is payment secure?"],
             "ar": ["هل الدفع آمن؟"],
         },
@@ -1252,6 +1261,10 @@ IMMO_KEYWORDS = normalize_keywords([
     "home",
     "apartment",
     "apartments",
+    "appart",
+    "apparts",
+    "appartement",
+    "appartements",
     "lodging",
     "housing",
     "سكن",
@@ -1411,6 +1424,50 @@ PRICE_KEYWORDS = normalize_keywords([
     "دج",
 ])
 
+PAYMENT_KEYWORDS = normalize_keywords([
+    "paiement",
+    "payer",
+    "payement",
+    "paeiment",
+    "payment",
+    "pay",
+    "paye",
+    "payer",
+    "payer en ligne",
+    "secure payment",
+    "paiement sécurisé",
+    "paiement securise",
+    "paiement en ligne",
+    "دفع",
+    "الدفع",
+    "مدفوعات",
+    "تسديد",
+])
+
+PAYOUT_KEYWORDS = normalize_keywords([
+    "recevoir mon argent",
+    "recevoir argent",
+    "recevoir le paiement",
+    "recevoir le payement",
+    "recevoir mon paiement",
+    "recevoir mon payement",
+    "recevoir les paiements",
+    "versement",
+    "virement",
+    "retrait",
+    "payout",
+    "payouts",
+    "payment receive",
+    "get paid",
+    "receive payment",
+    "mon argent",
+    "أستلم",
+    "استلم",
+    "استلام",
+    "سحب",
+    "تحويل",
+])
+
 HOST_KEYWORDS = normalize_keywords([
     "hôte",
     "hote",
@@ -1563,6 +1620,8 @@ def detect_intent(text: str, context: Optional[str] = None) -> dict:
     is_greeting = keyword_hits(message_norm, tokens_set, GREETING_KEYWORDS) > 0
     is_booking = keyword_hits(message_norm, tokens_set, BOOKING_KEYWORDS) > 0
     is_price = keyword_hits(message_norm, tokens_set, PRICE_KEYWORDS) > 0
+    is_payment = keyword_hits(message_norm, tokens_set, PAYMENT_KEYWORDS) > 0
+    is_payout = keyword_hits(message_norm, tokens_set, PAYOUT_KEYWORDS) > 0
     is_host = keyword_hits(message_norm, tokens_set, HOST_KEYWORDS) > 0
     is_help = keyword_hits(message_norm, tokens_set, HELP_KEYWORDS) > 0
     is_contact = keyword_hits(message_norm, tokens_set, CONTACT_KEYWORDS) > 0
@@ -1584,6 +1643,8 @@ def detect_intent(text: str, context: Optional[str] = None) -> dict:
         "is_greeting": is_greeting,
         "is_booking": is_booking,
         "is_price": is_price,
+        "is_payment": is_payment,
+        "is_payout": is_payout,
         "is_host": is_host,
         "is_help": is_help,
         "is_contact": is_contact,
@@ -1604,6 +1665,8 @@ def build_response_fr(intent: dict, _message: str) -> ChatResponse:
     has_action_intent = any([
         intent["is_price"],
         intent["is_booking"],
+        intent["is_payment"],
+        intent["is_payout"],
         intent["is_host"],
         intent["is_account"],
         intent["is_help"],
@@ -1660,6 +1723,25 @@ def build_response_fr(intent: dict, _message: str) -> ChatResponse:
             ),
             suggestions=["✅ Devenir hôte", "📋 Voir toutes les annonces"],
             link="/devenir-hote",
+        )
+
+    if intent["is_payout"]:
+        return ChatResponse(
+            reply=(
+                "En tant qu’hôte, vous pouvez recevoir les paiements en ligne via la plateforme "
+                "ou en espèces lors de l’accès au service."
+            ),
+            suggestions=["❓ Aide", "📋 Voir les annonces"],
+            link="/centre-aide",
+        )
+
+    if intent["is_payment"]:
+        return ChatResponse(
+            reply=(
+                "Le paiement se fait lors de la réservation et il est sécurisé. "
+                "Vous verrez toujours le montant avant de confirmer."
+            ),
+            suggestions=["📋 Voir les annonces", "❓ Aide"],
         )
 
     if intent["is_cancel"]:
@@ -1830,6 +1912,8 @@ def build_response_ar(intent: dict, _message: str) -> ChatResponse:
     has_action_intent = any([
         intent["is_price"],
         intent["is_booking"],
+        intent["is_payment"],
+        intent["is_payout"],
         intent["is_host"],
         intent["is_account"],
         intent["is_help"],
@@ -1883,6 +1967,23 @@ def build_response_ar(intent: dict, _message: str) -> ChatResponse:
             ),
             suggestions=["✅ أصبح مضيفًا", "📋 عرض كل الإعلانات"],
             link="/devenir-hote",
+        )
+
+    if intent["is_payout"]:
+        return ChatResponse(
+            reply=(
+                "كمضيف، يمكنك استلام المدفوعات عبر المنصة أو نقدًا عند الوصول إلى الخدمة."
+            ),
+            suggestions=["❓ مساعدة", "📋 عرض الإعلانات"],
+            link="/centre-aide",
+        )
+
+    if intent["is_payment"]:
+        return ChatResponse(
+            reply=(
+                "الدفع يتم عند إتمام الحجز وهو آمن. ستشاهد المبلغ قبل التأكيد."
+            ),
+            suggestions=["📋 عرض الإعلانات", "❓ مساعدة"],
         )
 
     if intent["is_cancel"]:
@@ -2046,10 +2147,28 @@ def build_response(intent: dict, message: str, language: Language = "fr") -> Cha
 @router.post("/message", response_model=ChatResponse)
 async def chat(payload: ChatMessage):
     """Endpoint principal du chatbot TouriGo."""
+    intent = detect_intent(payload.message, payload.context)
     faq_response = match_faq(payload.message, payload.language)
     if faq_response is not None:
+        category = intent.get("category")
+        has_multi_category = intent.get("has_multi_category", False)
+        has_action_intent = any([
+            intent.get("is_price"),
+            intent.get("is_booking"),
+            intent.get("is_payment"),
+            intent.get("is_payout"),
+            intent.get("is_host"),
+            intent.get("is_account"),
+            intent.get("is_help"),
+            intent.get("is_contact"),
+            intent.get("is_cancel"),
+        ])
+        if category and not has_multi_category:
+            if intent.get("is_booking") or intent.get("is_price"):
+                return build_response(intent, payload.message, payload.language)
+            if not has_action_intent:
+                return build_response(intent, payload.message, payload.language)
         return faq_response
-    intent = detect_intent(payload.message, payload.context)
     return build_response(intent, payload.message, payload.language)
 
 
