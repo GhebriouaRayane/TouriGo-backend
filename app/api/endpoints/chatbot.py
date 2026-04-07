@@ -306,6 +306,7 @@ FAQ_ENTRIES = [
                 "Qu'est-ce que Tourigo ?",
                 "Tourigo c'est quoi ?",
                 "Tourigo, c'est quoi ?",
+                "Pourquoi Tourigo ?",
             ],
             "en": ["What is Tourigo?"],
             "ar": ["ما هي Tourigo؟", "ما هو Tourigo؟"],
@@ -856,7 +857,12 @@ FAQ_ENTRIES = [
     {
         "key": "edit_listing_after_publish",
         "questions": {
-            "fr": ["Puis-je modifier mon annonce après publication ?"],
+            "fr": [
+                "Puis-je modifier mon annonce après publication ?",
+                "Comment modifier mon annonce ?",
+                "Comment éditer mon annonce ?",
+                "Comment mettre à jour mon annonce ?",
+            ],
             "en": ["Can I edit my listing after publishing?"],
             "ar": ["هل يمكنني تعديل إعلاني بعد النشر؟"],
         },
@@ -1060,7 +1066,15 @@ FAQ_ENTRIES = [
     {
         "key": "delete_listing",
         "questions": {
-            "fr": ["Comment supprimer une annonce ?"],
+            "fr": [
+                "Comment supprimer une annonce ?",
+                "Comment supprimer mon annonce ?",
+                "Comment supprimer une annonce que j'ai publiée ?",
+                "Comment supprimer une annonce que j'ai publie ?",
+                "Comment supprimer une annonce que j ai publier ?",
+                "Comment supprimer une annonce que j ai publie ?",
+                "Supprimer une annonce",
+            ],
             "en": ["How do I delete a listing?"],
             "ar": ["كيف أحذف إعلانًا؟"],
         },
@@ -1270,6 +1284,9 @@ def match_faq(message: str, language: Language) -> Optional[ChatResponse]:
                     message_tokens,
                     question_tokens,
                 )
+                if any(term in question_norm for term in ("prix", "tarif", "tarifs", "price", "cost", "fee", "fees")):
+                    if not any(term in message_norm for term in ("prix", "tarif", "tarifs", "price", "cost", "fee", "fees")):
+                        score = max(0.0, score - 0.15)
                 if score > best_score or (abs(score - best_score) < 0.01 and overlap > best_overlap):
                     best_score = score
                     best_overlap = overlap
@@ -1409,6 +1426,15 @@ ACTIVITE_KEYWORDS = normalize_keywords([
     "hiking",
     "experience",
     "experiences",
+    "kayak",
+    "canoe",
+    "canoë",
+    "paddle",
+    "rafting",
+    "plongee",
+    "plongée",
+    "surf",
+    "snorkeling",
     "نشاط",
     "أنشطة",
     "انشطة",
@@ -1637,7 +1663,6 @@ ACCOUNT_CREATE_KEYWORDS = normalize_keywords([
 ACCOUNT_DELETE_KEYWORDS = normalize_keywords([
     "supprimer mon compte",
     "supprimer compte",
-    "supprimer",
     "delete account",
     "delete my account",
     "remove account",
@@ -1741,7 +1766,7 @@ def detect_intent(text: str, context: Optional[str] = None) -> dict:
         if any(token in collapsed for token in ("supprimer", "delete", "remove", "fermer", "clore", "desactiver")):
             is_account_delete = True
 
-    if "tourigo" in collapsed and any(token in collapsed for token in ("cestquoi", "questceque", "whatis")):
+    if "tourigo" in collapsed and any(token in collapsed for token in ("cestquoi", "questceque", "whatis", "pourquoi")):
         is_help = True
 
     if is_account_create or is_account_delete:
