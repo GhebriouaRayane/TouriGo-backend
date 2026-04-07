@@ -299,6 +299,35 @@ FAQ_ENTRIES = [
         },
     },
     {
+        "key": "who_can_book",
+        "questions": {
+            "fr": [
+                "Qui peut réserver ?",
+                "Qui peut réserver une annonce ?",
+                "Le client peut-il réserver une annonce ?",
+                "Le hôte a le droit de réserver une annonce ?",
+                "Le hote a le droit de reserver une annonce ?",
+                "Est-ce qu'un hôte peut réserver ?",
+            ],
+            "en": ["Who can book?", "Can a host book a listing?"],
+            "ar": ["من يمكنه الحجز؟", "هل يمكن للمضيف الحجز؟"],
+        },
+        "answers": {
+            "fr": (
+                "La réservation se fait via un compte utilisateur. "
+                "Si vous êtes hôte, vous pouvez aussi réserver en tant qu'utilisateur."
+            ),
+            "en": (
+                "Booking is done via a user account. "
+                "If you are a host, you can also book as a user."
+            ),
+            "ar": (
+                "يتم الحجز عبر حساب مستخدم. "
+                "إذا كنت مضيفًا يمكنك أيضًا الحجز كمستخدم."
+            ),
+        },
+    },
+    {
         "key": "what_is_tourigo",
         "questions": {
             "fr": [
@@ -409,7 +438,13 @@ FAQ_ENTRIES = [
     {
         "key": "publish_listing",
         "questions": {
-            "fr": ["Comment publier une annonce ?"],
+            "fr": [
+                "Comment publier une annonce ?",
+                "Comment ajouter une annonce ?",
+                "Comment créer une annonce ?",
+                "Comment mettre une annonce en ligne ?",
+                "Comment ajouter mon annonce ?",
+            ],
             "en": ["How do I publish a listing?"],
             "ar": ["كيف أنشر إعلانًا؟"],
         },
@@ -882,7 +917,13 @@ FAQ_ENTRIES = [
     {
         "key": "who_can_publish",
         "questions": {
-            "fr": ["Qui peut publier une annonce ?"],
+            "fr": [
+                "Qui peut publier une annonce ?",
+                "Est-ce que tout le monde peut publier une annonce ?",
+                "Le client a le droit de publier une annonce ?",
+                "Le client peut-il publier une annonce ?",
+                "Qui peut mettre une annonce en ligne ?",
+            ],
             "en": ["Who can publish a listing?"],
             "ar": ["من يمكنه نشر إعلان؟"],
         },
@@ -1053,7 +1094,12 @@ FAQ_ENTRIES = [
     {
         "key": "view_listings",
         "questions": {
-            "fr": ["Comment voir mes annonces ?"],
+            "fr": [
+                "Comment voir mes annonces ?",
+                "Où voir mes annonces ?",
+                "Voir mes annonces",
+                "Mes annonces",
+            ],
             "en": ["How do I view my listings?"],
             "ar": ["كيف أرى إعلاناتي؟"],
         },
@@ -1254,6 +1300,8 @@ def match_faq(message: str, language: Language) -> Optional[ChatResponse]:
     raw_tokens = message_norm.split()
     if len(raw_tokens) <= 1:
         return None
+    has_mes_annonces = "mes annonces" in message_norm
+    has_mon_annonce = "mon annonce" in message_norm
 
     languages_to_check: list[Language] = []
     for lang in (language, "fr", "en", "ar"):
@@ -1287,6 +1335,32 @@ def match_faq(message: str, language: Language) -> Optional[ChatResponse]:
                 if any(term in question_norm for term in ("prix", "tarif", "tarifs", "price", "cost", "fee", "fees")):
                     if not any(term in message_norm for term in ("prix", "tarif", "tarifs", "price", "cost", "fee", "fees")):
                         score = max(0.0, score - 0.15)
+                if (has_mes_annonces or has_mon_annonce) and not any(
+                    term in question_norm for term in ("mes annonces", "mon annonce")
+                ):
+                    score = max(0.0, score - 0.12)
+                if "supprimer" in question_norm and not any(
+                    term in message_norm for term in ("supprimer", "delete", "retirer", "effacer")
+                ):
+                    score = max(0.0, score - 0.18)
+                if any(term in question_norm for term in ("publier", "publication", "publish")):
+                    if not any(
+                        term in message_norm
+                        for term in (
+                            "publier",
+                            "publication",
+                            "publish",
+                            "mettre en ligne",
+                            "ajouter une annonce",
+                            "creer une annonce",
+                            "créer une annonce",
+                            "creation d annonce",
+                            "création d annonce",
+                        )
+                    ):
+                        score = max(0.0, score - 0.12)
+                if "photo" in question_norm and "photo" not in message_norm:
+                    score = max(0.0, score - 0.2)
                 if score > best_score or (abs(score - best_score) < 0.01 and overlap > best_overlap):
                     best_score = score
                     best_overlap = overlap
