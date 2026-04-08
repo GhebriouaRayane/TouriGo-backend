@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     SMS_WEBHOOK_URL: str | None = None
     SMS_WEBHOOK_TOKEN: str | None = None
 
+    SUPABASE_URL: str | None = None
+    SUPABASE_SERVICE_ROLE_KEY: str | None = None
+    SUPABASE_STORAGE_BUCKET: str | None = None
+    SUPABASE_STORAGE_AVATARS_PREFIX: str = "avatars"
+    SUPABASE_STORAGE_LISTINGS_PREFIX: str = "listings"
+
     ALLOWED_HOSTS: List[str] = [
         "*",
         "http://localhost:3000",
