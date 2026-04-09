@@ -255,7 +255,12 @@ FAQ_ENTRIES = [
     {
         "key": "reserve_service",
         "questions": {
-            "fr": ["Comment réserver un service sur Tourigo ?"],
+            "fr": [
+                "Comment réserver un service sur Tourigo ?",
+                "Comment faire une réservation ?",
+                "Explique-moi comment faire une réservation",
+                "Comment réserver ?",
+            ],
             "en": ["How do I book a service on Tourigo?"],
             "ar": ["كيف أحجز خدمة على Tourigo؟"],
         },
@@ -414,9 +419,46 @@ FAQ_ENTRIES = [
         },
     },
     {
+        "key": "subscription_info",
+        "questions": {
+            "fr": [
+                "Comment fonctionne votre abonnement ?",
+                "Pourquoi payer un abonnement ?",
+                "Y a-t-il un abonnement ?",
+            ],
+            "en": [
+                "How does your subscription work?",
+                "Why pay a subscription?",
+                "Is there a subscription?",
+            ],
+            "ar": [
+                "كيف يعمل الاشتراك؟",
+                "هل يوجد اشتراك؟",
+            ],
+        },
+        "answers": {
+            "fr": (
+                "Il n’y a pas d’abonnement obligatoire. "
+                "Vous payez selon la réservation ou l’annonce choisie."
+            ),
+            "en": (
+                "There is no mandatory subscription. "
+                "You pay per reservation or per listing you choose."
+            ),
+            "ar": (
+                "لا يوجد اشتراك إلزامي. "
+                "الدفع يكون حسب الحجز أو الإعلان الذي تختاره."
+            ),
+        },
+    },
+    {
         "key": "become_host",
         "questions": {
-            "fr": ["Comment devenir hôte ?"],
+            "fr": [
+                "Comment devenir hôte ?",
+                "Comment les prestataires s'inscrivent ?",
+                "Comment les prestataires s’inscrivent ?",
+            ],
             "en": ["How do I become a host?"],
             "ar": ["كيف أصبح مضيفًا؟"],
         },
@@ -1335,6 +1377,12 @@ def match_faq(message: str, language: Language) -> Optional[ChatResponse]:
                 if any(term in question_norm for term in ("prix", "tarif", "tarifs", "price", "cost", "fee", "fees")):
                     if not any(term in message_norm for term in ("prix", "tarif", "tarifs", "price", "cost", "fee", "fees")):
                         score = max(0.0, score - 0.15)
+                if any(term in question_norm for term in ("paiement", "payer", "payment", "pay")):
+                    if not any(term in message_norm for term in ("paiement", "payer", "payment", "pay")):
+                        score = max(0.0, score - 0.15)
+                if any(term in question_norm for term in ("abonnement", "subscription", "membership")):
+                    if not any(term in message_norm for term in ("abonnement", "subscription", "membership")):
+                        score = max(0.0, score - 0.2)
                 if (has_mes_annonces or has_mon_annonce) and not any(
                     term in question_norm for term in ("mes annonces", "mon annonce")
                 ):
@@ -1424,6 +1472,12 @@ IMMO_KEYWORDS = normalize_keywords([
     "apparts",
     "appartement",
     "appartements",
+    "hotel",
+    "hôtel",
+    "hotels",
+    "hôtels",
+    "resort",
+    "auberge",
     "lodging",
     "housing",
     "سكن",
@@ -1767,6 +1821,64 @@ THANKS_KEYWORDS = normalize_keywords([
     "شكرًا",
 ])
 
+ITINERARY_KEYWORDS = normalize_keywords([
+    "itineraire",
+    "itinéraire",
+    "itinerary",
+    "weekend",
+    "week end",
+    "week-end",
+    "séjour",
+    "sejour",
+    "touristique",
+    "touristiques",
+    "tourism",
+    "touristic",
+    "trip",
+    "vacances",
+    "vacation",
+    "voyage",
+    "2 jours",
+    "3 jours",
+    "4 jours",
+])
+
+AMENITY_KEYWORDS = normalize_keywords([
+    "wifi",
+    "wi fi",
+    "internet",
+    "piscine",
+    "pool",
+    "parking",
+    "clim",
+    "climatisation",
+    "air condition",
+    "air conditioning",
+    "vue mer",
+    "vue sur mer",
+    "sea view",
+    "breakfast",
+    "petit dejeuner",
+    "petit-déjeuner",
+])
+
+SUBSCRIPTION_KEYWORDS = normalize_keywords([
+    "abonnement",
+    "subscription",
+    "subscribe",
+    "membership",
+    "plan",
+])
+
+STEPS_KEYWORDS = normalize_keywords([
+    "etapes",
+    "étapes",
+    "etape",
+    "étape",
+    "steps",
+    "step by step",
+])
+
 
 def prepare_text(text: str) -> tuple[str, list[str], set[str]]:
     normalized = normalize_text(text)
@@ -1831,6 +1943,10 @@ def detect_intent(text: str, context: Optional[str] = None) -> dict:
     is_account_delete = keyword_hits(message_norm, tokens_set, ACCOUNT_DELETE_KEYWORDS) > 0
     is_cancel = keyword_hits(message_norm, tokens_set, CANCEL_KEYWORDS) > 0
     is_thanks = keyword_hits(message_norm, tokens_set, THANKS_KEYWORDS) > 0
+    is_itinerary = keyword_hits(message_norm, tokens_set, ITINERARY_KEYWORDS) > 0
+    is_amenities = keyword_hits(message_norm, tokens_set, AMENITY_KEYWORDS) > 0
+    is_subscription = keyword_hits(message_norm, tokens_set, SUBSCRIPTION_KEYWORDS) > 0
+    is_steps = keyword_hits(message_norm, tokens_set, STEPS_KEYWORDS) > 0
     is_bejaia = keyword_hits(message_norm, tokens_set, BEJAIA_KEYWORDS) > 0
     is_alger = keyword_hits(message_norm, tokens_set, ALGER_KEYWORDS) > 0
 
@@ -1868,6 +1984,10 @@ def detect_intent(text: str, context: Optional[str] = None) -> dict:
         "is_account_delete": is_account_delete,
         "is_cancel": is_cancel,
         "is_thanks": is_thanks,
+        "is_itinerary": is_itinerary,
+        "is_amenities": is_amenities,
+        "is_subscription": is_subscription,
+        "is_steps": is_steps,
     }
 
 
@@ -1884,6 +2004,10 @@ def build_response_fr(intent: dict, _message: str) -> ChatResponse:
         intent["is_booking"],
         intent["is_payment"],
         intent["is_payout"],
+        intent.get("is_itinerary"),
+        intent.get("is_amenities"),
+        intent.get("is_subscription"),
+        intent.get("is_steps"),
         intent["is_host"],
         intent["is_account"],
         intent["is_help"],
@@ -1961,6 +2085,15 @@ def build_response_fr(intent: dict, _message: str) -> ChatResponse:
             link="/devenir-hote",
         )
 
+    if intent.get("is_subscription"):
+        return ChatResponse(
+            reply=(
+                "Il n’y a pas d’abonnement obligatoire. "
+                "Vous payez selon la réservation ou l’annonce choisie."
+            ),
+            suggestions=["❓ Aide", "📋 Voir les annonces"],
+        )
+
     if intent["is_payout"]:
         return ChatResponse(
             reply=(
@@ -1978,6 +2111,53 @@ def build_response_fr(intent: dict, _message: str) -> ChatResponse:
                 "Vous verrez toujours le montant avant de confirmer."
             ),
             suggestions=["📋 Voir les annonces", "❓ Aide"],
+        )
+
+    if intent.get("is_amenities") and not intent["is_price"]:
+        return ChatResponse(
+            reply=(
+                "Les équipements (Wi‑Fi, piscine, vue mer, etc.) sont indiqués "
+                "dans chaque annonce. Utilisez les filtres et la description pour vérifier."
+            ),
+            suggestions=["🏠 Immobilier", "📋 Voir les annonces"],
+            link="/immobilier",
+        )
+
+    if intent.get("is_itinerary"):
+        if intent["is_bejaia"]:
+            return ChatResponse(
+                reply=(
+                    "Pour un séjour à Béjaïa, je peux vous aider à trouver des activités, "
+                    "un logement et même un véhicule. Par quoi voulez-vous commencer ?"
+                ),
+                suggestions=["🌴 Activités à Béjaïa", "🏠 Logement à Béjaïa", "🚗 Véhicule à Béjaïa"],
+                link="/resultats?destination=bejaia",
+            )
+        if intent["is_alger"]:
+            return ChatResponse(
+                reply=(
+                    "Pour un séjour à Alger, je peux vous aider à trouver des activités, "
+                    "un logement et un véhicule. Par quoi voulez-vous commencer ?"
+                ),
+                suggestions=["🌴 Activités à Alger", "🏠 Logement à Alger", "🚗 Véhicule à Alger"],
+                link="/resultats?destination=alger",
+            )
+        return ChatResponse(
+            reply=(
+                "Je peux vous aider à composer un séjour : activités, logement et véhicule. "
+                "Quelle catégorie vous intéresse en premier ?"
+            ),
+            suggestions=["🌴 Activités", "🏠 Immobilier", "🚗 Véhicules"],
+        )
+
+    if intent.get("is_steps") and not intent["is_payment"]:
+        return ChatResponse(
+            reply=(
+                "Pour réserver : 1) choisissez une annonce, 2) sélectionnez vos dates, "
+                "3) envoyez la demande et confirmez. Vous recevrez une confirmation."
+            ),
+            suggestions=["🏠 Chercher un logement", "🚗 Chercher un véhicule", "🌴 Chercher une activité"],
+            link="/resultats",
         )
 
     if intent["is_cancel"]:
@@ -2137,6 +2317,325 @@ def build_response_fr(intent: dict, _message: str) -> ChatResponse:
     )
 
 
+def build_response_en(intent: dict, _message: str) -> ChatResponse:
+    category = intent.get("category")
+    context_category = intent.get("context_category")
+    has_multi_category = intent.get("has_multi_category", False)
+    category_for_action = category
+    if category_for_action is None and context_category and (intent["is_price"] or intent["is_booking"]):
+        category_for_action = context_category
+
+    has_action_intent = any([
+        intent["is_price"],
+        intent["is_booking"],
+        intent["is_payment"],
+        intent["is_payout"],
+        intent.get("is_itinerary"),
+        intent.get("is_amenities"),
+        intent.get("is_subscription"),
+        intent.get("is_steps"),
+        intent["is_host"],
+        intent["is_account"],
+        intent["is_help"],
+        intent["is_contact"],
+        intent["is_cancel"],
+    ])
+
+    if intent["is_greeting"] and not category and not has_multi_category and not has_action_intent and not intent["is_thanks"]:
+        return ChatResponse(
+            reply=(
+                "Hello! 👋 I'm the TouriGo assistant.\n"
+                "I can help you find accommodation, rent a vehicle, "
+                "or discover local activities in Algeria.\n"
+                "How can I help you?"
+            ),
+            suggestions=[
+                "🏠 Real estate",
+                "🚗 Vehicles",
+                "🌴 Activities",
+            ],
+        )
+
+    if intent["is_thanks"] and not category and not has_multi_category and not has_action_intent:
+        return ChatResponse(
+            reply="You're welcome! Tell me what you're looking for — I'm here to help.",
+            suggestions=["🏠 Real estate", "🚗 Vehicles", "🌴 Activities"],
+        )
+
+    if has_multi_category:
+        return ChatResponse(
+            reply=(
+                "Are you looking for accommodation, a vehicle, or an activity? "
+                "I can point you to the right category."
+            ),
+            suggestions=["🏠 Real estate", "🚗 Vehicles", "🌴 Activities"],
+        )
+
+    if intent.get("is_account_delete"):
+        return ChatResponse(
+            reply="You can delete your account from your profile settings in the app.",
+            suggestions=["❓ Help", "📋 See listings"],
+        )
+
+    if intent.get("is_account_create"):
+        return ChatResponse(
+            reply=(
+                "To create an account, go to Sign up, choose email or phone, "
+                "fill in your details, then confirm the code."
+            ),
+            suggestions=["🔑 Log in", "📝 Sign up"],
+            link="/inscription",
+        )
+
+    if intent["is_account"]:
+        return ChatResponse(
+            reply=(
+                "To access your account, you can log in or sign up. "
+                "This lets you book, save favorites, and manage your listings."
+            ),
+            suggestions=["🔑 Log in", "📝 Sign up"],
+            link="/connexion",
+        )
+
+    if intent["is_host"]:
+        return ChatResponse(
+            reply=(
+                "Want to publish a listing? 🎉\n"
+                "TouriGo lets you become a host and offer your accommodation, "
+                "vehicle, or activity to many users!"
+            ),
+            suggestions=["✅ Become a host", "📋 See all listings"],
+            link="/devenir-hote",
+        )
+
+    if intent.get("is_subscription"):
+        return ChatResponse(
+            reply=(
+                "There is no mandatory subscription. "
+                "You pay per reservation or per listing you choose."
+            ),
+            suggestions=["❓ Help", "📋 See listings"],
+        )
+
+    if intent["is_payout"]:
+        return ChatResponse(
+            reply=(
+                "As a host, you can receive payments online via the platform "
+                "or in cash when accessing the service."
+            ),
+            suggestions=["❓ Help", "📋 See listings"],
+            link="/centre-aide",
+        )
+
+    if intent["is_payment"]:
+        return ChatResponse(
+            reply=(
+                "Payment is made during booking and is secure. "
+                "You will always see the amount before confirming."
+            ),
+            suggestions=["📋 See listings", "❓ Help"],
+        )
+
+    if intent.get("is_amenities") and not intent["is_price"]:
+        return ChatResponse(
+            reply=(
+                "Amenities (Wi‑Fi, pool, sea view, etc.) are listed in each listing. "
+                "Use filters and the description to check."
+            ),
+            suggestions=["🏠 Real estate", "📋 See listings"],
+            link="/immobilier",
+        )
+
+    if intent.get("is_itinerary"):
+        if intent["is_bejaia"]:
+            return ChatResponse(
+                reply=(
+                    "For a stay in Bejaia, I can help you find activities, "
+                    "accommodation, and even a vehicle. Where should we start?"
+                ),
+                suggestions=["🌴 Activities in Bejaia", "🏠 Accommodation in Bejaia", "🚗 Vehicle in Bejaia"],
+                link="/resultats?destination=bejaia",
+            )
+        if intent["is_alger"]:
+            return ChatResponse(
+                reply=(
+                    "For a stay in Algiers, I can help you find activities, "
+                    "accommodation, and a vehicle. Where should we start?"
+                ),
+                suggestions=["🌴 Activities in Algiers", "🏠 Accommodation in Algiers", "🚗 Vehicle in Algiers"],
+                link="/resultats?destination=alger",
+            )
+        return ChatResponse(
+            reply=(
+                "I can help you build a trip with activities, accommodation, and a vehicle. "
+                "Which category do you want first?"
+            ),
+            suggestions=["🌴 Activities", "🏠 Real estate", "🚗 Vehicles"],
+        )
+
+    if intent.get("is_steps") and not intent["is_payment"]:
+        return ChatResponse(
+            reply=(
+                "To book: 1) choose a listing, 2) select your dates, "
+                "3) send the request and confirm. You'll receive a confirmation."
+            ),
+            suggestions=["🏠 Search for accommodation", "🚗 Search for a vehicle", "🌴 Search for an activity"],
+            link="/resultats",
+        )
+
+    if intent["is_cancel"]:
+        return ChatResponse(
+            reply=(
+                "To cancel a booking, open My reservations, "
+                "select the listing, then choose Cancel. "
+                "If needed, our support can help."
+            ),
+            suggestions=["❓ Help", "📋 See listings"],
+            link="/centre-aide",
+        )
+
+    if intent["is_price"]:
+        category_label = "listings"
+        link = "/resultats"
+        if category_for_action == "immobilier":
+            category_label = "accommodations"
+            link = "/immobilier"
+        elif category_for_action == "vehicule":
+            category_label = "vehicles"
+            link = "/vehicules"
+        elif category_for_action == "activite":
+            category_label = "activities"
+            link = "/activites"
+        return ChatResponse(
+            reply=(
+                f"Prices vary depending on the {category_label} and their location. "
+                "Check listings to see detailed rates. No hidden fees!"
+            ),
+            suggestions=[f"🔍 See {category_label}", "📍 Filter by city"],
+            link=link,
+        )
+
+    if intent["is_booking"]:
+        link = "/resultats"
+        if category_for_action == "immobilier":
+            link = "/immobilier"
+        elif category_for_action == "vehicule":
+            link = "/vehicules"
+        elif category_for_action == "activite":
+            link = "/activites"
+        return ChatResponse(
+            reply=(
+                "To book, find a listing you like, choose your dates, "
+                "and send your request to the host. You'll receive a confirmation."
+            ),
+            suggestions=["🏠 Search for accommodation", "🚗 Search for a vehicle", "🌴 Search for an activity"],
+            link=link,
+        )
+
+    if intent["is_contact"]:
+        return ChatResponse(
+            reply=(
+                "You can contact a host directly via the built‑in messaging "
+                "on the listing page. Our team is also available for extra help."
+            ),
+            suggestions=["📋 See listings", "❓ Help"],
+        )
+
+    if intent["is_help"]:
+        return ChatResponse(
+            reply=(
+                "TouriGo is an Algerian platform to find:\n"
+                "🏠 Accommodations for rent\n"
+                "🚗 Vehicles for rent\n"
+                "🌴 Local activities and excursions\n\n"
+                "Tell me what you're looking for!"
+            ),
+            suggestions=["🏠 Real estate", "🚗 Vehicles", "🌴 Activities"],
+        )
+
+    if category == "immobilier":
+        city_info = ""
+        if intent["is_bejaia"]:
+            city_info = "in Bejaia "
+        elif intent["is_alger"]:
+            city_info = "in Algiers "
+
+        return ChatResponse(
+            reply=(
+                f"Great choice! 🏠 We have accommodations {city_info}available. "
+                "Apartments, houses, villas... browse our listings and pick what fits you."
+            ),
+            suggestions=["🔍 Search for accommodation", "📍 Filter by city", "💰 See prices"],
+            link="/immobilier",
+        )
+
+    if category == "vehicule":
+        city_info = ""
+        if intent["is_bejaia"]:
+            city_info = "in Bejaia "
+        elif intent["is_alger"]:
+            city_info = "in Algiers "
+
+        return ChatResponse(
+            reply=(
+                f"Perfect! 🚗 Find the ideal vehicle {city_info}in our listings. "
+                "Cars, 4x4s, motorcycles... compare offers and book directly."
+            ),
+            suggestions=["🔍 Search for a vehicle", "📍 Filter by city", "💰 See rates"],
+            link="/vehicules",
+        )
+
+    if category == "activite":
+        city_info = ""
+        if intent["is_bejaia"]:
+            city_info = "in Bejaia "
+        elif intent["is_alger"]:
+            city_info = "in Algiers "
+
+        return ChatResponse(
+            reply=(
+                f"Awesome! 🌴 Discover activities and excursions {city_info}for unforgettable memories. "
+                "Hikes, water sports, guided tours... there's something for everyone!"
+            ),
+            suggestions=["🔍 See activities", "📍 Activities in Bejaia", "📍 Activities in Algiers"],
+            link="/activites",
+        )
+
+    if intent["is_bejaia"]:
+        return ChatResponse(
+            reply=(
+                "Bejaia is a beautiful destination! ⛰️🌊 "
+                "What would you like to find for this trip?"
+            ),
+            suggestions=["🏠 Accommodation in Bejaia", "🚗 Vehicle in Bejaia", "🌴 Activities in Bejaia"],
+            link="/resultats?destination=bejaia",
+        )
+
+    if intent["is_alger"]:
+        return ChatResponse(
+            reply=(
+                "Algiers! 🏙️ "
+                "What would you like to find there?"
+            ),
+            suggestions=["🏠 Accommodation in Algiers", "🚗 Vehicle in Algiers", "🌴 Activities in Algiers"],
+            link="/resultats?destination=alger",
+        )
+
+    return ChatResponse(
+        reply=(
+            "I'm not sure I understand 🤔 "
+            "But I can help you find accommodation, a vehicle, or an activity! "
+            "What are you looking for?"
+        ),
+        suggestions=[
+            "🏠 Real estate",
+            "🚗 Vehicles",
+            "🌴 Activities",
+            "❓ Help",
+        ],
+    )
+
+
 def build_response_ar(intent: dict, _message: str) -> ChatResponse:
     category = intent.get("category")
     context_category = intent.get("context_category")
@@ -2150,6 +2649,10 @@ def build_response_ar(intent: dict, _message: str) -> ChatResponse:
         intent["is_booking"],
         intent["is_payment"],
         intent["is_payout"],
+        intent.get("is_itinerary"),
+        intent.get("is_amenities"),
+        intent.get("is_subscription"),
+        intent.get("is_steps"),
         intent["is_host"],
         intent["is_account"],
         intent["is_help"],
@@ -2223,6 +2726,15 @@ def build_response_ar(intent: dict, _message: str) -> ChatResponse:
             link="/devenir-hote",
         )
 
+    if intent.get("is_subscription"):
+        return ChatResponse(
+            reply=(
+                "لا يوجد اشتراك إلزامي. "
+                "الدفع يكون حسب الحجز أو الإعلان الذي تختاره."
+            ),
+            suggestions=["❓ مساعدة", "📋 عرض الإعلانات"],
+        )
+
     if intent["is_payout"]:
         return ChatResponse(
             reply=(
@@ -2238,6 +2750,53 @@ def build_response_ar(intent: dict, _message: str) -> ChatResponse:
                 "الدفع يتم عند إتمام الحجز وهو آمن. ستشاهد المبلغ قبل التأكيد."
             ),
             suggestions=["📋 عرض الإعلانات", "❓ مساعدة"],
+        )
+
+    if intent.get("is_amenities") and not intent["is_price"]:
+        return ChatResponse(
+            reply=(
+                "المزايا مثل الواي فاي أو المسبح أو الإطلالة موضحة في كل إعلان. "
+                "استخدم عوامل التصفية والوصف للتحقق."
+            ),
+            suggestions=["🏠 العقارات", "📋 عرض الإعلانات"],
+            link="/immobilier",
+        )
+
+    if intent.get("is_itinerary"):
+        if intent["is_bejaia"]:
+            return ChatResponse(
+                reply=(
+                    "لسفر إلى بجاية يمكنني مساعدتك في الأنشطة والسكن والمركبات. "
+                    "بماذا تريد أن نبدأ؟"
+                ),
+                suggestions=["🌴 أنشطة في بجاية", "🏠 سكن في بجاية", "🚗 مركبة في بجاية"],
+                link="/resultats?destination=bejaia",
+            )
+        if intent["is_alger"]:
+            return ChatResponse(
+                reply=(
+                    "لسفر إلى الجزائر يمكنني مساعدتك في الأنشطة والسكن والمركبات. "
+                    "بماذا تريد أن نبدأ؟"
+                ),
+                suggestions=["🌴 أنشطة في الجزائر", "🏠 سكن في الجزائر", "🚗 مركبة في الجزائر"],
+                link="/resultats?destination=alger",
+            )
+        return ChatResponse(
+            reply=(
+                "يمكنني مساعدتك في إعداد برنامج: أنشطة، سكن، ومركبات. "
+                "ما الفئة التي تهمك أولاً؟"
+            ),
+            suggestions=["🌴 الأنشطة", "🏠 العقارات", "🚗 المركبات"],
+        )
+
+    if intent.get("is_steps") and not intent["is_payment"]:
+        return ChatResponse(
+            reply=(
+                "لإتمام الحجز: 1) اختر الإعلان، 2) حدّد التواريخ، "
+                "3) أرسل الطلب وأكّد. ستصلك رسالة تأكيد."
+            ),
+            suggestions=["🏠 البحث عن سكن", "🚗 البحث عن مركبة", "🌴 البحث عن نشاط"],
+            link="/resultats",
         )
 
     if intent["is_cancel"]:
@@ -2395,6 +2954,8 @@ def build_response_ar(intent: dict, _message: str) -> ChatResponse:
 def build_response(intent: dict, message: str, language: Language = "fr") -> ChatResponse:
     if language == "ar":
         return build_response_ar(intent, message)
+    if language == "en":
+        return build_response_en(intent, message)
     return build_response_fr(intent, message)
 
 
