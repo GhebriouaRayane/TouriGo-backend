@@ -2959,13 +2959,29 @@ def build_response(intent: dict, message: str, language: Language = "fr") -> Cha
     return build_response_fr(intent, message)
 
 
-@router.post("/message", response_model=ChatResponse)
-async def chat(payload: ChatMessage):
-    """Endpoint principal du chatbot TouriGo."""
-    intent = detect_intent(payload.message, payload.context)
+def build_chat_response(message: str, context: Optional[str], language: Language) -> ChatResponse:
+    cleaned_message = message.strip()
+    if not cleaned_message:
+        if language == "ar":
+            return ChatResponse(
+                reply="اكتب سؤالك وسأساعدك فورًا.",
+                suggestions=["🏠 عرض العقارات", "🚗 استئجار مركبة", "🌴 اكتشاف الأنشطة"],
+            )
+        if language == "en":
+            return ChatResponse(
+                reply="Type your question and I will help right away.",
+                suggestions=["🏠 Real estate", "🚗 Vehicles", "🌴 Activities"],
+            )
+        return ChatResponse(
+            reply="Écrivez votre question et je vous aide tout de suite.",
+            suggestions=["🏠 Voir l'immobilier", "🚗 Louer un véhicule", "🌴 Découvrir des activités"],
+        )
+
+    intent = detect_intent(cleaned_message, context)
     if intent.get("is_account_create") or intent.get("is_account_delete"):
-        return build_response(intent, payload.message, payload.language)
-    faq_response = match_faq(payload.message, payload.language)
+        return build_response(intent, cleaned_message, language)
+
+    faq_response = match_faq(cleaned_message, language)
     if faq_response is not None:
         category = intent.get("category")
         has_multi_category = intent.get("has_multi_category", False)
@@ -2982,11 +2998,30 @@ async def chat(payload: ChatMessage):
         ])
         if category and not has_multi_category:
             if intent.get("is_booking") or intent.get("is_price"):
-                return build_response(intent, payload.message, payload.language)
+                return build_response(intent, cleaned_message, language)
             if not has_action_intent:
-                return build_response(intent, payload.message, payload.language)
+                return build_response(intent, cleaned_message, language)
         return faq_response
-    return build_response(intent, payload.message, payload.language)
+
+    return build_response(intent, cleaned_message, language)
+
+
+@router.post("/message", response_model=ChatResponse)
+async def chat(payload: ChatMessage):
+    """Endpoint principal du chatbot TouriGo."""
+    return build_chat_response(payload.message, payload.context, payload.language)
+
+
+@router.get("/message", response_model=ChatResponse)
+async def chat_get(
+    message: str,
+    language: Language = "fr",
+    context: Optional[str] = None,
+):
+    """
+    GET variant for environments where POST+JSON preflight can fail (some WebViews/proxies).
+    """
+    return build_chat_response(message, context, language)
 
 
 @router.get("/welcome", response_model=ChatResponse)

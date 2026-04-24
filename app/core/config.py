@@ -44,6 +44,10 @@ class Settings(BaseSettings):
 
     ALLOWED_HOSTS: List[str] = [
         "*",
+        "http://localhost",
+        "https://localhost",
+        "capacitor://localhost",
+        "ionic://localhost",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:5173",
@@ -52,6 +56,9 @@ class Settings(BaseSettings):
         "http://127.0.0.1:4173",
     ]
     CORS_ALLOW_CREDENTIALS: bool = True
+    CORS_ALLOW_ORIGIN_REGEX: str | None = (
+        r"^(https?://localhost(:\d+)?|capacitor://localhost|ionic://localhost)$"
+    )
     AUTO_CREATE_TABLES: bool = False
 
     model_config = SettingsConfigDict(

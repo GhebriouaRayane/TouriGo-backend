@@ -26,6 +26,7 @@ allow_credentials = settings.CORS_ALLOW_CREDENTIALS and "*" not in settings.ALLO
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_HOSTS,
+    allow_origin_regex=settings.CORS_ALLOW_ORIGIN_REGEX,
     allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
