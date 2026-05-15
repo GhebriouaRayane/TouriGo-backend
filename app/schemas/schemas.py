@@ -208,6 +208,8 @@ class ListingOut(ListingBase):
     owner_id: Optional[int] = None
     owner_full_name: Optional[str] = None
     owner_phone_number: Optional[str] = None
+    rating_average: Optional[float] = None
+    rating_count: int = 0
     images: List[ListingImageOut] = []
     model_config = ConfigDict(from_attributes=True)
 

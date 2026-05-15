@@ -1,13 +1,14 @@
+from functools import lru_cache
 from typing import Any, List, Optional
 from pathlib import Path
 from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, load_only, selectinload
 
 from app.api import deps
 from app.db.session import get_db
-from app.models.models import Listing, ListingImage, ListingType, User, UserRole
+from app.models.models import Listing, ListingImage, ListingType, Review, User, UserRole
 from app.schemas.schemas import ListingCreate, ListingOut, ListingUpdate, MessageResponse
 
 router = APIRouter()
@@ -18,6 +19,11 @@ FALLBACK_IMAGE_BY_TYPE: dict[str, str] = {
     "vehicule": "https://images.unsplash.com/photo-1614200179396-2bdb77ebf81b?w=800",
     "activite": "https://images.unsplash.com/photo-1654127655303-b955c3763777?w=800",
 }
+
+
+@lru_cache(maxsize=2048)
+def _listing_image_exists(filename: str) -> bool:
+    return (LISTINGS_MEDIA_DIR / filename).is_file()
 
 
 def _sanitize_listing_images(listing: Listing) -> None:
@@ -36,7 +42,7 @@ def _sanitize_listing_images(listing: Listing) -> None:
         if not filename:
             image.url = fallback
             continue
-        if not (LISTINGS_MEDIA_DIR / filename).is_file():
+        if not _listing_image_exists(filename):
             image.url = fallback
 
 
@@ -57,7 +63,11 @@ def _ensure_listing_management_permission(current_user: User, listing: Listing) 
 def _get_listing_by_id(db: Session, listing_id: int) -> Listing:
     listing = (
         db.query(Listing)
-        .options(joinedload(Listing.images), joinedload(Listing.owner))
+        .options(
+            selectinload(Listing.images),
+            joinedload(Listing.owner).load_only(User.id, User.full_name, User.phone_number),
+            selectinload(Listing.reviews).load_only(Review.rating),
+        )
         .filter(Listing.id == listing_id)
         .first()
     )
@@ -79,7 +89,11 @@ def read_listings(
     """
     Retrieve listings.
     """
-    query = db.query(Listing).options(joinedload(Listing.images), joinedload(Listing.owner))
+    query = db.query(Listing).options(
+        selectinload(Listing.images),
+        joinedload(Listing.owner).load_only(User.id, User.full_name, User.phone_number),
+        selectinload(Listing.reviews).load_only(Review.rating),
+    )
     if type:
         query = query.filter(Listing.type == type.value)
     if category:
@@ -101,7 +115,11 @@ def read_my_listings(
     """
     listings = (
         db.query(Listing)
-        .options(joinedload(Listing.images), joinedload(Listing.owner))
+        .options(
+            selectinload(Listing.images),
+            joinedload(Listing.owner).load_only(User.id, User.full_name, User.phone_number),
+            selectinload(Listing.reviews).load_only(Review.rating),
+        )
         .filter(Listing.owner_id == current_user.id)
         .all()
     )

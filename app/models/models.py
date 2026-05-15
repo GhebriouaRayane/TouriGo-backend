@@ -141,6 +141,17 @@ class Listing(Base):
             return None
         return self.owner.phone_number
 
+    @property
+    def rating_count(self) -> int:
+        return len(self.reviews or [])
+
+    @property
+    def rating_average(self) -> float | None:
+        if not self.reviews:
+            return None
+        total_rating = sum(review.rating for review in self.reviews)
+        return total_rating / len(self.reviews)
+
 
 class ListingImage(Base):
     __tablename__ = "listing_images"
