@@ -12,7 +12,7 @@ from app.api import deps
 from app.db.session import get_db
 from app.models.models import Booking, BookingStatus, Listing, NotificationType, User, UserRole
 from app.schemas.schemas import BookingCreate, BookingOut, BookingRejectPayload
-from app.services.notifications import create_notification
+from app.services.notifications import create_notification, dispatch_notification_push
 
 router = APIRouter()
 
@@ -501,7 +501,7 @@ def create_booking(
                 f"\"{listing.title}\" du {booking_start.date().isoformat()} "
                 f"au {booking_end.date().isoformat()}."
             )
-        create_notification(
+        notification = create_notification(
             db,
             user_id=listing.owner_id,
             notification_type=NotificationType.BOOKING_REQUEST,
@@ -509,7 +509,12 @@ def create_booking(
             body=body,
             booking_id=booking.id,
         )
+    else:
+        notification = None
     db.commit()
+    if notification is not None:
+        db.refresh(notification)
+        dispatch_notification_push(db, notification)
     return _get_booking_with_listing(db, booking.id)
 
 
@@ -527,7 +532,7 @@ def confirm_booking(
     db.add(booking)
     if booking.user_id:
         listing_title = booking.listing.title if booking.listing else f"Annonce #{booking.listing_id}"
-        create_notification(
+        notification = create_notification(
             db,
             user_id=booking.user_id,
             notification_type=NotificationType.BOOKING_STATUS,
@@ -535,7 +540,12 @@ def confirm_booking(
             body=f"Votre reservation pour \"{listing_title}\" a ete confirmee par l'hote.",
             booking_id=booking.id,
         )
+    else:
+        notification = None
     db.commit()
+    if notification is not None:
+        db.refresh(notification)
+        dispatch_notification_push(db, notification)
     return _get_booking_with_listing(db, booking.id)
 
 
@@ -556,7 +566,7 @@ def reject_booking(
         listing_title = booking.listing.title if booking.listing else f"Annonce #{booking.listing_id}"
         reason = payload.reason.strip() if payload.reason else ""
         rejection_suffix = f" Motif: {reason}" if reason else ""
-        create_notification(
+        notification = create_notification(
             db,
             user_id=booking.user_id,
             notification_type=NotificationType.BOOKING_STATUS,
@@ -564,7 +574,12 @@ def reject_booking(
             body=f"Votre reservation pour \"{listing_title}\" a ete refusee par l'hote.{rejection_suffix}",
             booking_id=booking.id,
         )
+    else:
+        notification = None
     db.commit()
+    if notification is not None:
+        db.refresh(notification)
+        dispatch_notification_push(db, notification)
     return _get_booking_with_listing(db, booking.id)
 
 
@@ -583,7 +598,7 @@ def cancel_booking(
     listing_owner_id = booking.listing.owner_id if booking.listing else None
     if listing_owner_id and listing_owner_id != current_user.id:
         listing_title = booking.listing.title if booking.listing else f"Annonce #{booking.listing_id}"
-        create_notification(
+        notification = create_notification(
             db,
             user_id=listing_owner_id,
             notification_type=NotificationType.BOOKING_STATUS,
@@ -591,5 +606,10 @@ def cancel_booking(
             body=f"Le client a annule sa reservation pour \"{listing_title}\".",
             booking_id=booking.id,
         )
+    else:
+        notification = None
     db.commit()
+    if notification is not None:
+        db.refresh(notification)
+        dispatch_notification_push(db, notification)
     return _get_booking_with_listing(db, booking.id)

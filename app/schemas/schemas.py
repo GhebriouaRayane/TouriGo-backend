@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
-from app.models.models import BookingStatus, ListingType, NotificationType, UserRole, VerificationChannel
+from app.models.models import BookingStatus, ListingType, NotificationType, PushPlatform, UserRole, VerificationChannel
 
 # --- User Schemas ---
 class UserBase(BaseModel):
@@ -280,6 +280,55 @@ class NotificationOut(BaseModel):
 class NotificationReadAllResponse(BaseModel):
     updated: int = Field(ge=0)
     model_config = ConfigDict(extra="forbid")
+
+
+class PushTokenRegister(BaseModel):
+    token: str = Field(min_length=20, max_length=4096)
+    platform: PushPlatform
+    device_id: Optional[str] = Field(default=None, max_length=255)
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("token")
+    @classmethod
+    def normalize_token(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Le token push est obligatoire.")
+        return normalized
+
+    @field_validator("device_id")
+    @classmethod
+    def normalize_device_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+
+class PushTokenOut(BaseModel):
+    id: int
+    user_id: int
+    token: str
+    platform: PushPlatform
+    device_id: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    last_seen_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PushTokenDeletePayload(BaseModel):
+    token: str = Field(min_length=20, max_length=4096)
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("token")
+    @classmethod
+    def normalize_delete_token(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Le token push est obligatoire.")
+        return normalized
 
 
 class MessageCreate(BaseModel):

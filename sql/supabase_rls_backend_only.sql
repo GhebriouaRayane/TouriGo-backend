@@ -12,6 +12,7 @@ alter table if exists public.reviews enable row level security;
 alter table if exists public.favorites enable row level security;
 alter table if exists public.messages enable row level security;
 alter table if exists public.notifications enable row level security;
+alter table if exists public.push_device_tokens enable row level security;
 alter table if exists public.registration_codes enable row level security;
 
 -- Optional defense in depth: remove direct table grants from API roles.
@@ -23,6 +24,7 @@ revoke all privileges on table public.reviews from anon, authenticated;
 revoke all privileges on table public.favorites from anon, authenticated;
 revoke all privileges on table public.messages from anon, authenticated;
 revoke all privileges on table public.notifications from anon, authenticated;
+revoke all privileges on table public.push_device_tokens from anon, authenticated;
 revoke all privileges on table public.registration_codes from anon, authenticated;
 
 commit;

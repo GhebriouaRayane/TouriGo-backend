@@ -51,6 +51,12 @@ class VerificationChannel(str, enum.Enum):
     PHONE = "phone"
 
 
+class PushPlatform(str, enum.Enum):
+    ANDROID = "android"
+    IOS = "ios"
+    WEB = "web"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -89,6 +95,9 @@ class User(Base):
         cascade="all, delete-orphan",
     )
     notifications: Mapped[list["Notification"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    push_tokens: Mapped[list["PushDeviceToken"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -291,6 +300,31 @@ class Notification(Base):
     user: Mapped["User"] = relationship(back_populates="notifications")
     booking: Mapped["Booking | None"] = relationship(back_populates="notifications")
     message: Mapped["Message | None"] = relationship(back_populates="notifications")
+
+
+class PushDeviceToken(Base):
+    __tablename__ = "push_device_tokens"
+    __table_args__ = (
+        UniqueConstraint("token", name="uq_push_device_tokens_token"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token: Mapped[str] = mapped_column(Text, nullable=False)
+    platform: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    device_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    user: Mapped["User"] = relationship(back_populates="push_tokens")
 
 
 class Review(Base):

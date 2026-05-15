@@ -3,6 +3,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.models.models import Notification, NotificationType
+from app.services.push_notifications import send_push_notification_to_user
 
 
 def create_notification(
@@ -30,3 +31,18 @@ def create_notification(
     )
     db.add(notification)
     return notification
+
+
+def dispatch_notification_push(db: Session, notification: Notification) -> int:
+    return send_push_notification_to_user(
+        db,
+        user_id=notification.user_id,
+        title=notification.title,
+        body=notification.body,
+        data={
+            "notificationId": notification.id,
+            "type": notification.type,
+            "bookingId": notification.booking_id,
+            "messageId": notification.message_id,
+        },
+    )

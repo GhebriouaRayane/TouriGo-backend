@@ -9,7 +9,7 @@ from app.api import deps
 from app.db.session import get_db
 from app.models.models import Booking, Message, NotificationType, User, UserRole
 from app.schemas.schemas import MessageCreate, MessageOut
-from app.services.notifications import create_notification
+from app.services.notifications import create_notification, dispatch_notification_push
 
 router = APIRouter()
 
@@ -108,7 +108,7 @@ def send_booking_message(
     db.add(message)
     db.flush()
     listing_title = booking.listing.title if booking.listing else f"Annonce #{booking.listing_id}"
-    create_notification(
+    notification = create_notification(
         db,
         user_id=recipient_id,
         notification_type=NotificationType.MESSAGE,
@@ -118,6 +118,8 @@ def send_booking_message(
         message_id=message.id,
     )
     db.commit()
+    db.refresh(notification)
+    dispatch_notification_push(db, notification)
     created = _message_query_with_relations(db).filter(Message.id == message.id).first()
     if not created:
         raise HTTPException(status_code=500, detail="Message cree mais introuvable.")

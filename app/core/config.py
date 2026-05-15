@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     SUPABASE_STORAGE_BUCKET: str | None = None
     SUPABASE_STORAGE_AVATARS_PREFIX: str = "avatars"
     SUPABASE_STORAGE_LISTINGS_PREFIX: str = "listings"
+    FIREBASE_PROJECT_ID: str | None = None
+    FIREBASE_SERVICE_ACCOUNT_JSON: str | None = None
+    FIREBASE_SERVICE_ACCOUNT_FILE: str | None = None
 
     ALLOWED_HOSTS: List[str] = [
         "*",
