@@ -13,12 +13,14 @@ from app.core.config import settings
 from app.api import deps
 from app.db.session import get_db
 from app.models.models import RegistrationCode, User, UserRole, VerificationChannel
+from app.db.seed import DEMO_USER_EMAILS
 from app.schemas.schemas import (
     GoogleLoginRequest,
     MessageResponse,
     RegisterCodeRequest,
     RegisterCodeRequestOut,
     RegisterCodeVerify,
+    UserBase,
     Token,
     UserDelete,
     UserOut,
@@ -311,6 +313,106 @@ def read_current_user(
     Get current authenticated user profile.
     """
     return current_user
+
+
+@router.get("/admin/users", response_model=list[UserOut])
+def read_admin_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_admin_user),
+) -> Any:
+    """
+    Admin-only list of all users.
+    """
+    return (
+        db.query(User)
+        .filter(~User.email.in_(sorted(DEMO_USER_EMAILS)))
+        .order_by(User.created_at.desc())
+        .all()
+    )
+
+
+@router.patch("/admin/users/{user_id}", response_model=UserOut)
+def update_admin_user(
+    *,
+    db: Session = Depends(get_db),
+    user_id: int,
+    user_in: UserBase,
+    current_user: User = Depends(deps.get_current_admin_user),
+) -> Any:
+    """
+    Admin-only update for user role and profile fields.
+    """
+    user_obj = db.query(User).filter(User.id == user_id).first()
+    if not user_obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if user_obj.email in DEMO_USER_EMAILS:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if user_in.role not in {UserRole.USER.value, UserRole.HOST.value, UserRole.ADMIN.value}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Role invalide.")
+    existing_user = db.query(User).filter(User.email == user_in.email, User.id != user_id).first()
+    if existing_user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cet email est deja utilise.")
+
+    if user_obj.id == current_user.id and user_in.role != current_user.role:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Vous ne pouvez pas modifier votre propre rôle.")
+
+    user_obj.email = user_in.email
+    user_obj.full_name = user_in.full_name
+    user_obj.avatar_url = user_in.avatar_url
+    user_obj.phone_number = user_in.phone_number
+    user_obj.role = user_in.role
+    db.add(user_obj)
+    db.commit()
+    db.refresh(user_obj)
+    return user_obj
+
+
+@router.post("/admin/users/{user_id}/toggle-active", response_model=UserOut)
+def toggle_admin_user_active(
+    *,
+    db: Session = Depends(get_db),
+    user_id: int,
+    current_user: User = Depends(deps.get_current_admin_user),
+) -> Any:
+    """
+    Admin-only toggle for user activation.
+    """
+    user_obj = db.query(User).filter(User.id == user_id).first()
+    if not user_obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if user_obj.email in DEMO_USER_EMAILS:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if user_obj.id == current_user.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Vous ne pouvez pas désactiver votre propre compte.")
+
+    user_obj.is_active = not user_obj.is_active
+    db.add(user_obj)
+    db.commit()
+    db.refresh(user_obj)
+    return user_obj
+
+
+@router.delete("/admin/users/{user_id}", response_model=MessageResponse)
+def delete_admin_user(
+    *,
+    db: Session = Depends(get_db),
+    user_id: int,
+    current_user: User = Depends(deps.get_current_admin_user),
+) -> Any:
+    """
+    Admin-only deletion of a user account.
+    """
+    user_obj = db.query(User).filter(User.id == user_id).first()
+    if not user_obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if user_obj.email in DEMO_USER_EMAILS:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if user_obj.id == current_user.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Vous ne pouvez pas supprimer votre propre compte.")
+
+    db.delete(user_obj)
+    db.commit()
+    return {"message": "Utilisateur supprime avec succes."}
 
 
 @router.post("/become-host", response_model=UserOut)

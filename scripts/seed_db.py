@@ -14,6 +14,7 @@ def main() -> None:
     db = SessionLocal()
     try:
         seed_database(db)
+        db.commit()
         print("Database seeded successfully.")
     finally:
         db.close()

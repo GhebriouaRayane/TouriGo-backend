@@ -34,22 +34,16 @@ Le backend FastAPI expose les endpoints suivants pour interagir avec les fonctio
 | Récupérer une annonce par ID | `GET` | `/api/v1/listings/{id}` | Récupère les détails d'une annonce spécifique. | Non |
 | Créer une nouvelle annonce | `POST` | `/api/v1/listings/` | Permet à un utilisateur authentifié de créer une annonce. | Oui (JWT) |
 
-## 2.1 Initialiser une base de données de démonstration
+## 2.1 Nettoyer la base locale
 
-Pour remplir la base de données locale avec des utilisateurs, annonces, images, favoris, avis et réservations de test :
+Pour supprimer les comptes de démonstration et conserver uniquement les utilisateurs réellement inscrits :
 
 ```bash
 cd backend
 ./venv/bin/python scripts/seed_db.py
 ```
 
-Comptes de démonstration créés :
-
-- `admin@3ich.app` / `AdminPassword123!`
-- `karim@3ich.app` / `HostPassword123!`
-- `samira@3ich.app` / `HostPassword123!`
-- `amina@3ich.app` / `UserPassword123!`
-- `yacine@3ich.app` / `UserPassword123!`
+Ce script supprime les comptes de démonstration connus et promeut le compte réel `rayaneghebrioua10@gmail.com` en admin s'il existe déjà dans la base.
 
 ## 3. Exemples de Requêtes Frontend (avec Axios)
 

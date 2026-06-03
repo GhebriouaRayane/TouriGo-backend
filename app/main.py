@@ -4,7 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from app.api.api import api_router
 from app.core.config import settings
-from app.db.session import engine, Base
+from app.db.session import Base, SessionLocal, engine
+from app.db.seed import seed_database
 
 MEDIA_DIR = Path(__file__).resolve().parents[1] / "media"
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
@@ -12,6 +13,7 @@ MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 # Création automatique des tables uniquement en environnement local.
 if settings.AUTO_CREATE_TABLES:
     Base.metadata.create_all(bind=engine)
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
@@ -34,6 +36,19 @@ app.add_middleware(
 
 # Inclusion des routes de l'API
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+
+@app.on_event("startup")
+def seed_local_admin_account() -> None:
+    if settings.ENVIRONMENT == "production":
+        return
+
+    db = SessionLocal()
+    try:
+        seed_database(db)
+        db.commit()
+    finally:
+        db.close()
 
 @app.get("/", tags=["Root"])
 def read_root():
