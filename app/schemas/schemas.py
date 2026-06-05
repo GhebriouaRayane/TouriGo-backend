@@ -47,7 +47,7 @@ class RegisterCodeRequest(BaseModel):
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
-    phone_number: Optional[str] = None
+    phone_number: str
     password: str = Field(min_length=8, max_length=128)
     become_host: bool = False
     channel: VerificationChannel = VerificationChannel.EMAIL
@@ -57,16 +57,14 @@ class RegisterCodeRequest(BaseModel):
     @classmethod
     def normalize_phone_number(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
-            return None
+            raise ValueError("Le numero de telephone est obligatoire.")
         normalized = value.strip()
         if not normalized:
-            return None
+            raise ValueError("Le numero de telephone est obligatoire.")
         return normalized
 
     @model_validator(mode="after")
     def validate_channel_target(self) -> "RegisterCodeRequest":
-        if self.channel == VerificationChannel.PHONE and not self.phone_number:
-            raise ValueError("Le numero de telephone est obligatoire.")
         if self.channel == VerificationChannel.EMAIL and not self.email:
             raise ValueError("L'email est obligatoire pour l'inscription par email.")
         return self

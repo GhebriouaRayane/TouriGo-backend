@@ -11,7 +11,11 @@ from sqlalchemy.orm import Session, joinedload
 from app.api import deps
 from app.db.session import get_db
 from app.models.models import Booking, BookingStatus, Listing, NotificationType, User, UserRole
-from app.schemas.schemas import BookingCreate, BookingOut, BookingRejectPayload
+from app.schemas.schemas import (
+    BookingCreate,
+    BookingOut,
+    BookingRejectPayload,
+)
 from app.services.notifications import create_notification, dispatch_notification_push
 
 router = APIRouter()
@@ -187,13 +191,26 @@ def _ensure_cancellable_booking(booking: Booking) -> None:
         raise HTTPException(status_code=400, detail="Seules les reservations en attente ou confirmees peuvent etre annulees.")
 
 
+def _ensure_can_access_conversation(current_user: User, booking: Booking) -> None:
+    if current_user.role == UserRole.ADMIN.value:
+        return
+    listing_owner_id = booking.listing.owner_id if booking.listing else None
+    if current_user.id == booking.user_id or current_user.id == listing_owner_id:
+        return
+    raise HTTPException(status_code=403, detail="Acces refuse a cette conversation.")
+
+
 @router.get("/me", response_model=List[BookingOut])
 def read_my_bookings(
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    bookings = _booking_query_with_relations(db).filter(Booking.user_id == current_user.id).order_by(Booking.start_date.desc()).all()
-    return bookings
+    return (
+        _booking_query_with_relations(db)
+        .filter(Booking.user_id == current_user.id)
+        .order_by(Booking.start_date.desc())
+        .all()
+    )
 
 
 @router.get("/received", response_model=List[BookingOut])

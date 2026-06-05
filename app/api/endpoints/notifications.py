@@ -8,7 +8,10 @@ from sqlalchemy.orm import Session
 from app.api import deps
 from app.db.session import get_db
 from app.models.models import Notification, User
-from app.schemas.schemas import NotificationOut, NotificationReadAllResponse
+from app.schemas.schemas import (
+    NotificationOut,
+    NotificationReadAllResponse,
+)
 
 router = APIRouter()
 
@@ -67,3 +70,4 @@ def mark_all_notifications_read(
     )
     db.commit()
     return {"updated": int(updated)}
+
