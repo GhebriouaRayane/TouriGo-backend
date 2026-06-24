@@ -206,9 +206,22 @@ class ListingOut(ListingBase):
     owner_id: Optional[int] = None
     owner_full_name: Optional[str] = None
     owner_phone_number: Optional[str] = None
+    owner_avatar_url: Optional[str] = None
     rating_average: Optional[float] = None
     rating_count: int = 0
     images: List[ListingImageOut] = []
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HostProfileOut(BaseModel):
+    id: int
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    phone_number: Optional[str] = None
+    role: str
+    rating_average: Optional[float] = None
+    rating_count: int = 0
+    listings: List[ListingOut] = []
     model_config = ConfigDict(from_attributes=True)
 
 # --- Booking Schemas ---

@@ -151,6 +151,12 @@ class Listing(Base):
         return self.owner.phone_number
 
     @property
+    def owner_avatar_url(self) -> str | None:
+        if not self.owner:
+            return None
+        return self.owner.avatar_url
+
+    @property
     def rating_count(self) -> int:
         return len(self.reviews or [])
 

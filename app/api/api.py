@@ -1,8 +1,9 @@
 from fastapi import APIRouter
-from app.api.endpoints import auth, bookings, chatbot, favorites, listings, messages, notifications, push_tokens, reviews, uploads
+from app.api.endpoints import auth, bookings, chatbot, favorites, hosts, listings, messages, notifications, push_tokens, reviews, uploads
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+api_router.include_router(hosts.router, prefix="/hosts", tags=["Hosts"])
 api_router.include_router(listings.router, prefix="/listings", tags=["Listings"])
 api_router.include_router(bookings.router, prefix="/bookings", tags=["Bookings"])
 api_router.include_router(favorites.router, prefix="/favorites", tags=["Favorites"])

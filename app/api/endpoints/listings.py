@@ -65,7 +65,7 @@ def _get_listing_by_id(db: Session, listing_id: int) -> Listing:
         db.query(Listing)
         .options(
             selectinload(Listing.images),
-            joinedload(Listing.owner).load_only(User.id, User.full_name, User.phone_number),
+            joinedload(Listing.owner).load_only(User.id, User.full_name, User.phone_number, User.avatar_url),
             selectinload(Listing.reviews).load_only(Review.rating),
         )
         .filter(Listing.id == listing_id)
@@ -91,7 +91,7 @@ def read_listings(
     """
     query = db.query(Listing).options(
         selectinload(Listing.images),
-        joinedload(Listing.owner).load_only(User.id, User.full_name, User.phone_number),
+        joinedload(Listing.owner).load_only(User.id, User.full_name, User.phone_number, User.avatar_url),
         selectinload(Listing.reviews).load_only(Review.rating),
     )
     if type:
@@ -117,7 +117,7 @@ def read_my_listings(
         db.query(Listing)
         .options(
             selectinload(Listing.images),
-            joinedload(Listing.owner).load_only(User.id, User.full_name, User.phone_number),
+            joinedload(Listing.owner).load_only(User.id, User.full_name, User.phone_number, User.avatar_url),
             selectinload(Listing.reviews).load_only(Review.rating),
         )
         .filter(Listing.owner_id == current_user.id)
