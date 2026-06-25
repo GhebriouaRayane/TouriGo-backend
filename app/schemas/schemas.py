@@ -32,6 +32,34 @@ class UserPasswordUpdate(BaseModel):
     new_password: str = Field(min_length=8, max_length=128)
     model_config = ConfigDict(extra="forbid")
 
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+    model_config = ConfigDict(extra="forbid")
+
+
+class PasswordResetRequestOut(BaseModel):
+    reset_id: int
+    message: str
+    target: str
+    expires_at: datetime
+    debug_code: Optional[str] = None
+
+
+class PasswordResetVerify(BaseModel):
+    reset_id: int = Field(gt=0)
+    code: str = Field(min_length=4, max_length=10)
+    new_password: str = Field(min_length=8, max_length=128)
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("code")
+    @classmethod
+    def normalize_code(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized.isdigit():
+            raise ValueError("Le code de verification doit contenir uniquement des chiffres.")
+        return normalized
+
 class UserDelete(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     model_config = ConfigDict(extra="forbid")

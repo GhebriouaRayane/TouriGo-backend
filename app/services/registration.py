@@ -30,21 +30,35 @@ def mask_target(channel: VerificationChannel, target: str) -> str:
 
 def send_verification_code(channel: VerificationChannel, target: str, code: str) -> bool:
     if channel == VerificationChannel.EMAIL:
-        return _send_email_code(target=target, code=code)
+        return _send_email_code(
+            target=target,
+            subject="Code de confirmation TouriGo",
+            text_content=(
+                f"Votre code de confirmation TouriGo est: {code}\n"
+                f"Ce code expire dans {settings.REGISTRATION_CODE_EXPIRE_MINUTES} minutes."
+            ),
+        )
     return _send_sms_code(target=target, code=code)
 
-def _send_email_code(*, target: str, code: str) -> bool:
+def send_password_reset_code(target: str, code: str) -> bool:
+    return _send_email_code(
+        target=target,
+        subject="Réinitialisation du mot de passe TouriGo",
+        text_content=(
+            f"Votre code de réinitialisation TouriGo est: {code}\n"
+            f"Ce code expire dans {settings.REGISTRATION_CODE_EXPIRE_MINUTES} minutes."
+        ),
+    )
+
+def _send_email_code(*, target: str, subject: str, text_content: str) -> bool:
     if not settings.BREVO_API_KEY:
         logger.warning("Brevo non configure: impossible d'envoyer le code par email.")
         return False
     payload = json.dumps({
         "sender": {"name": "TouriGo", "email": "rayaneghebrioua10@gmail.com"},
         "to": [{"email": target}],
-        "subject": "Code de confirmation TouriGo",
-        "textContent": (
-            f"Votre code de confirmation TouriGo est: {code}\n"
-            f"Ce code expire dans {settings.REGISTRATION_CODE_EXPIRE_MINUTES} minutes."
-        ),
+        "subject": subject,
+        "textContent": text_content,
     }).encode("utf-8")
     req = urllib_request.Request(
         "https://api.brevo.com/v3/smtp/email",

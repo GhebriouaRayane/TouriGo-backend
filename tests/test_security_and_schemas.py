@@ -7,7 +7,16 @@ from pydantic import ValidationError
 
 from app.core.config import settings
 from app.core.security import ALGORITHM, create_access_token, get_password_hash, verify_password
-from app.schemas.schemas import BookingCreate, ListingCreate, RegisterCodeRequest, RegisterCodeVerify, ReviewCreate, UserCreate
+from app.schemas.schemas import (
+    BookingCreate,
+    ListingCreate,
+    PasswordResetRequest,
+    PasswordResetVerify,
+    RegisterCodeRequest,
+    RegisterCodeVerify,
+    ReviewCreate,
+    UserCreate,
+)
 from app.services.google_auth import GoogleTokenError, verify_google_id_token
 
 
@@ -150,6 +159,20 @@ class SecurityAndSchemaTests(unittest.TestCase):
                 {
                     "verification_id": 1,
                     "code": "12ab56",
+                }
+            )
+
+    def test_password_reset_request_requires_email(self) -> None:
+        with self.assertRaises(ValidationError):
+            PasswordResetRequest.model_validate({})
+
+    def test_password_reset_verify_must_be_numeric(self) -> None:
+        with self.assertRaises(ValidationError):
+            PasswordResetVerify.model_validate(
+                {
+                    "reset_id": 1,
+                    "code": "12ab56",
+                    "new_password": "Password1234",
                 }
             )
 

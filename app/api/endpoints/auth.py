@@ -12,11 +12,14 @@ from app.core import security
 from app.core.config import settings
 from app.api import deps
 from app.db.session import get_db
-from app.models.models import RegistrationCode, User, UserRole, VerificationChannel
+from app.models.models import PasswordResetCode, RegistrationCode, User, UserRole, VerificationChannel
 from app.db.seed import DEMO_USER_EMAILS
 from app.schemas.schemas import (
     GoogleLoginRequest,
     MessageResponse,
+    PasswordResetRequest,
+    PasswordResetRequestOut,
+    PasswordResetVerify,
     RegisterCodeRequest,
     RegisterCodeRequestOut,
     RegisterCodeVerify,
@@ -28,7 +31,7 @@ from app.schemas.schemas import (
     UserUpdate,
 )
 from app.services.google_auth import GoogleTokenError, verify_google_id_token
-from app.services.registration import generate_numeric_code, mask_target, send_verification_code
+from app.services.registration import generate_numeric_code, mask_target, send_password_reset_code, send_verification_code
 
 router = APIRouter()
 PHONE_EMAIL_DOMAIN = "phone.tourigo.local"
@@ -85,6 +88,13 @@ def _resolve_account_email(
         digest = hashlib.sha256(phone_number.encode("utf-8")).hexdigest()[:24]
         return f"phone-{digest}@{PHONE_EMAIL_DOMAIN}"
     raise HTTPException(status_code=400, detail="Identifiant d'inscription invalide.")
+
+
+def _normalize_email(value: str) -> str:
+    email = value.strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Adresse email invalide.")
+    return email
 
 @router.post("/login/access-token", response_model=Token)
 def login_access_token(
@@ -152,6 +162,112 @@ def login_google(
         raise HTTPException(status_code=400, detail="Inactive user")
 
     return _issue_access_token(user.email)
+
+
+@router.post("/password-reset/request-code", response_model=PasswordResetRequestOut)
+def request_password_reset_code(
+    *,
+    db: Session = Depends(get_db),
+    payload: PasswordResetRequest,
+) -> Any:
+    """
+    Start a password reset flow by sending an OTP to the user's email.
+    """
+    email = _normalize_email(payload.email)
+    user = db.query(User).filter(func.lower(User.email) == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Aucun compte trouve pour cet email.")
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+
+    db.query(PasswordResetCode).filter(
+        PasswordResetCode.email == email,
+        PasswordResetCode.consumed_at.is_(None),
+    ).delete(synchronize_session=False)
+
+    now = datetime.now(timezone.utc)
+    reset_code = generate_numeric_code(settings.REGISTRATION_CODE_LENGTH)
+    reset = PasswordResetCode(
+        email=email,
+        hashed_code=security.get_password_hash(reset_code),
+        expires_at=now + timedelta(minutes=settings.REGISTRATION_CODE_EXPIRE_MINUTES),
+    )
+    db.add(reset)
+    db.commit()
+    db.refresh(reset)
+
+    delivery_ok = send_password_reset_code(email, reset_code)
+    debug_code = reset_code if _should_expose_debug_code() else None
+    if not delivery_ok and debug_code is None:
+        db.delete(reset)
+        db.commit()
+        raise HTTPException(
+            status_code=503,
+            detail="Impossible d'envoyer le code de reinitialisation. Configurez Brevo pour l'email.",
+        )
+
+    message = "Code de reinitialisation envoye."
+    if not delivery_ok and debug_code is not None:
+        message = "Canal non configure: code de reinitialisation retourne en mode developpement."
+
+    return {
+        "reset_id": reset.id,
+        "message": message,
+        "target": mask_target(VerificationChannel.EMAIL, email),
+        "expires_at": reset.expires_at,
+        "debug_code": debug_code,
+    }
+
+
+@router.post("/password-reset/reset-password", response_model=MessageResponse)
+def reset_password_with_code(
+    *,
+    db: Session = Depends(get_db),
+    payload: PasswordResetVerify,
+) -> Any:
+    """
+    Verify the OTP and update the user's password.
+    """
+    reset = db.query(PasswordResetCode).filter(PasswordResetCode.id == payload.reset_id).first()
+    if not reset or reset.consumed_at is not None:
+        raise HTTPException(status_code=400, detail="Demande de reinitialisation invalide ou deja utilisee.")
+
+    if _as_utc(reset.expires_at) < datetime.now(timezone.utc):
+        db.delete(reset)
+        db.commit()
+        raise HTTPException(status_code=400, detail="Le code a expire. Demandez un nouveau code.")
+
+    if reset.attempts >= settings.REGISTRATION_CODE_MAX_ATTEMPTS:
+        db.delete(reset)
+        db.commit()
+        raise HTTPException(status_code=400, detail="Nombre maximum de tentatives atteint.")
+
+    if not security.verify_password(payload.code, reset.hashed_code):
+        reset.attempts += 1
+        remaining_attempts = settings.REGISTRATION_CODE_MAX_ATTEMPTS - reset.attempts
+        if remaining_attempts <= 0:
+            db.delete(reset)
+            db.commit()
+            raise HTTPException(status_code=400, detail="Code incorrect. Demande expiree, recommencez la procedure.")
+        db.add(reset)
+        db.commit()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Code incorrect. Tentatives restantes: {remaining_attempts}.",
+        )
+
+    user = db.query(User).filter(func.lower(User.email) == reset.email.lower()).first()
+    if not user:
+        db.delete(reset)
+        db.commit()
+        raise HTTPException(status_code=404, detail="Aucun compte trouve pour cet email.")
+
+    user.hashed_password = security.get_password_hash(payload.new_password)
+    reset.consumed_at = datetime.now(timezone.utc)
+    db.add(user)
+    db.add(reset)
+    db.commit()
+    return {"message": "Mot de passe modifie avec succes."}
 
 @router.post("/register", response_model=RegisterCodeRequestOut)
 def register_user(
